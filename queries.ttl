@@ -1,0 +1,119 @@
+prefix meshv: <http://id.nlm.nih.gov/mesh/vocab#>
+prefix xsd:   <http://www.w3.org/2001/XMLSchema#>
+prefix skos:  <http://www.w3.org/2004/02/skos/core#>
+prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+prefix vcard: <http://www.w3.org/2006/vcard/ns#>
+prefix ucdrp: <http://experts.library.ucdavis.edu/individual/>
+prefix purl:  <http://purl.org/ontology/bibo/>
+prefix vitro: <http://vitro.mannlib.cornell.edu/ns/vitro/0.7#>
+prefix cito:  <http://purl.org/spar/cito/>
+prefix vivo_inf: <http://vitro.mannlib.cornell.edu/default/vitro-kb-inf>
+prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+prefix rp:   <http://ucdavis.edu/ns/>
+prefix bibo:  <http://purl.org/ontology/bibo/>
+prefix vivo:  <http://vivoweb.org/ontology/core#>
+prefix obo:   <http://purl.obolibrary.org/obo/>
+prefix foaf:  <http://xmlns.com/foaf/0.1/>
+prefix query: <http://experts.ucdavis.edu/schema/queries/>
+prefix bind: <http://experts.ucdavis.edu/schema/queries/>
+
+bind:pub
+    a rp:bind ;
+    rdfs:label "Experts Publication URL" ;
+    rp:bindto "?pub" ;
+    rp:bind_type xsd:uri ;
+    .
+
+bind:user
+    a rp:bind ;
+    rdfs:label "Expert Person URI" ;
+    rp:bindto "?user" ;
+    rp:bind_type xsd:uri ;
+    .
+
+query:publication_types
+    rdf:type  rp:construct_query, rp:query;
+    rdfs:label "Publication Type", "Example" ;
+    rp:optional_bind bind:pub ;
+    rp:optional_bind bind:type ;
+    rp:query """
+select ?pub a ?type
+WHERE {
+ ?pub a ?type .
+} LIMIT 10
+""" ;
+    .
+
+query:publications
+    rdf:type  rp:construct_query, rp:query;
+    rdfs:label "Publication Type", "Example" ;
+    rp:optional_bind bind:pub ;
+    rp:optional_bind bind:user ;
+    rp:query """
+CONSTRUCT {
+  ?pub rdf:type ?type ;
+    ?pub_cp ?o ;
+    cite:page ?page;
+    cite:venue ?venue;
+    cite:container-title ?venue_title;
+    cite:ISSN ?venue_issn;
+    cite:issued ?issued;
+    cite:citation-label ?pub_id;
+    cite:author ?a.
+ ?a cite:rank ?rank; ?vname_cp ?vname_obj.
+} WHERE {
+  ?user vivo:relatedBy ?author_link.
+  ?author_link a vivo:Authorship;
+               vivo:relates ?pub .
+  ?pub a bibo:Document.
+  values(?pub_p ?pub_cp) {
+    (rdfs:label cite:title)
+    (bibo:issue cite:issue)
+    (bibo:volume cite:volume)
+    (bibo:abstract cite:abstract)
+    (bibo:doi cite:DOI)
+    (bibo:volume cite:volume)
+    (bibo:pageStart cite:pageStart)
+    (bibo:pageEnd cite:pageEnd)
+  }
+  values(?vname_p ?vname_cp) {
+   (vcard:givenName cite:given)
+   (vcard:middleName cite:middle)
+   (vcard:familyName cite:family)
+  }
+  GRAPH ?g {
+    bind(replace(str(?pub),str(ucdrp:),"") as ?pub_id)
+    ?pub rdf:type ?type ;
+      ?pub_p ?o ;
+      vivo:relatedBy ?authorship .
+     OPTIONAL {
+       ?pub bibo:pageStart ?s ;
+            bibo:pageEnd ?e .
+       bind(concat(coalesce(?s,""),"-",coalesce(?e,"")) as ?page)
+     }
+    ?authorship a vivo:Authorship ;
+        vivo:rank ?rank ;
+        vivo:relates ?vcard .
+    bind(uri(concat(str(?pub),'_',substr('0000',1,4-strlen(str(?rank))),str(?rank))) as ?a)
+    ?vcard a vcard:Individual ; vcard:hasName ?vname .
+    ?vname ?vname_p ?vname_obj .
+    OPTIONAL {
+      ?pub vivo:dateTimeValue ?issue.
+      ?issue vivo:dateTime ?date.
+      bind(strdt(replace(str(?date),"T.*","","i"),xsd:datetime) as ?issued)
+    }
+    OPTIONAL {
+      ?pub vivo:hasPublicationVenue ?venue.
+      ?venue rdfs:label ?venue_title.
+      OPTIONAL { ?venue bibo:issn ?venue_issn. }
+    }
+    OPTIONAL {
+      ?authorship vivo:relates ?person .
+      ?person rdf:type foaf:Person .
+      OPTIONAL { ?authorPerson vivo:orcidid ?authorOrcid . }
+      OPTIONAL { ?authorPerson rdfs:label ?authorLabel . }
+    }
+  }
+}
+""" ;
+    .
