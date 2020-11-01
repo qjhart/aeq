@@ -59,11 +59,12 @@ are testing new queries with C<aeq> for example.
 =cut
 
 function _parse_yaml() {
-  local prefix=$2
-  local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
+  local s='[[:space:]]*' w='[a-zA-Z0-9_]*'
+  local fs
+  fs=$(echo @|tr @ '\034')
   sed -ne "s|^\($s\)\($w\)$s:$s\"\(.*\)\"$s\$|\1$fs\2$fs\3|p" \
-      -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
-    awk -F$fs '{
+      -e "s|^\\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  "$1" |
+    awk -F"$fs" '{
       indent = length($1)/2;
       vname[indent] = $2;
       for (i in vname) {if (i > indent) {delete vname[i]}}
@@ -75,8 +76,9 @@ function _parse_yaml() {
 }
 
 function main.init() {
-    local opts=`${G[shell_getopt]} -o A:bnhS:v --long prefix:,no-default-prefix,verbose,http_session:,session:,help -n 'aeq' -- "$@"`
-    if [ $? != 0 ] ; then echo "Bad Command Options." >&2 ; exit 1 ; fi
+  local opts;
+    if ! opts=$(${G[shell_getopt]} -o A:bnhS:v --long prefix:,no-default-prefix,verbose,http_session:,session:,help -n 'aeq' -- "$@"); then
+    echo "Bad Command Options." >&2 ; exit 1 ; fi
 
     eval set -- "$opts"
 
@@ -93,8 +95,8 @@ function main.init() {
           shift 2;;
 	      --print | --http_print) CMD[http_print]=$2; shift 2;;
 	      --endpoint | --ep ) CMD[endpoint]=$2; shift 2;;
-        --no-default-prefix ) defaults=; shift;;
-        -h | --help ) exec pod2text $0;;
+        -n | --no-default-prefix ) defaults=; shift;;
+        -h | --help ) exec pod2text "$0";;
 	      -- ) shift; break;;
 	      *) shift; break;
       esac
@@ -105,7 +107,7 @@ function main.init() {
     for config in ${G[AEQ_HOME]}/config/aeq.yml \
                   ${G[HOME]}/.config/aeq/aeq.yml ./.aeq.yml; do
       if [[ -f $config ]]; then
-        eval $(_parse_yaml "$config")
+        eval "$(_parse_yaml "$config")"
       fi
     done
 
@@ -175,17 +177,17 @@ function main.cmd () {
       config ) # informational requests
         declare -p G
         ;;
-	    prefix | parse_qp | log | err) # utility functions
-	      $cmd $@;
+	    prefix | parse_url | log | err) # utility functions
+	      $cmd "$@";
 	      ;;
 	    *)
-	      exec pod2usage $0
+	      exec pod2usage "$0"
 	  ;;
     esac
 }
 
 function log() {
-  echo -e >&2 LOG: ${@:-$(</dev/stdin)}
+  echo -e >&2 LOG: "${@:-$(</dev/stdin)}"
 }
 
 function err() {
@@ -195,27 +197,27 @@ function err() {
   else
     n=$1
     shift
-    (>&2 echo err: $@)
+    (>&2 echo err: "$@")
   fi
-  exit $n;
+  exit "$n";
 }
 
 : <<=cut
 =head2 PREFIX
 
-aeq parse_qp I<query_point>
+aeq parse_url I<query_point>
 
-C<aeq parse_qp> returns a bash array of the passed parsed URL.  This really
+C<aeq parse_url> returns a bash array of the passed parsed URL.  This really
 just a diagnostic test to verify any urls are being read by C<aeq> correctly.
 If not I<url> is passed, uses the C<aeq> endpoint as a test.
 
 =cut
 
-function parse_qp() {
+function parse_url() {
   declare -A url
 
   url[endpoint]=$1
-  [[ -n ${url[endpoint]} ]] || url[endpoint]]=${G[endpoint]}
+  [[ -n ${url[endpoint]} ]] || url[endpoint]="${G[endpoint]}"
 
   local pattern='^(([[:alnum:]]+):)(//((([[:alnum:]]+)(:([[:alnum:]]+))?@)?([^:^@^/^.]+)(:([[:digit:]]+))?)?)?/(\.)?(.*)?$'
 
@@ -285,48 +287,67 @@ The query function is used internally to perform all linked data queries.  If th
 
 Specify the endpoint to query.  If the endpoint is a C<file:> protocol, then the
 application uses the C<arq> program.  If the endpoint is a C<url:> then the
-function uses C<httpie>.
+query will ue use C<httpie>.
 
 
-=item B<--format=I<format>>
+=item B<--format=I<csv|json|jsonld|ttl|array|>>
 
-Specify the desired output formats. These are the mime-type and include:
+Specify the desired output format.
+
+These are the mime-type and include:
 C<text/csv>, C<application/ld+json>, C<text/turtle>, C<text/nquads>.  Note that
 not all formats work on all types, eg C<text/csv> will fail on C<construct> style queries.  The default is C<application/ld+json>
+
+./aeq -n --prefix='foo:<http://bar.com/>' query --endpoint=queries.ttl -p --query=$'select ?s ?p ?o\nwhere{ ?s ?p ?o} LIMIT 2' | arq --data=queries.ttl --query=- --results=JSON| jq -r '.head.vars as $head | .results.bindings[] | to_entries| "declare -A R=("+(map("["+.key+"]=\""+.value.value+"\"") | join(" "))+")"
 
 =back
 
 =cut
 
 function query() {
-  local opts=`${G[shell_getopt]} -o f:p: --long format:,endpoint: -n 'aeq query' -- "$@"`
+  local opts
+  opts=$(${G[shell_getopt]} \
+                -o f:e:pq: \
+                --long print,format:,endpoint:,query: \
+                -n 'aeq query' -- "$@") || err 1
 
-  if [ $? != 0 ] ; then echo "Bad Command Options." >&2 ; exit 1 ; fi
   eval set -- "$opts"
 
+  local query=
   local format="application/ld+json"
-  local endpoint="";
-  local pre
+  local endpoint="${G[endpoint]}";
+  local print_only=;
+  local inp
+
   while true; do
 	  case $1 in
-      --format ) format=$2; shift 2;;
-      --endpoint ) endpoint=$2; shift 2;;
+      -f | --format ) format="$2"; shift 2;;
+      -e | --endpoint ) endpoint="$2"; shift 2;;
+      -p | --print-only ) print_only=1; shift ;;
+      -q | --query ) query="$2"; shift 2;;
 	    -- ) shift; break;;
 	    *) shift; break;
     esac
   done
 
-#eval query=$(arq --results=csv --data=queries.ttl --query=- <<<'select * WHERE {<http://experts.ucdavis.edu/schema/queries/publication_types> <http://ucdavis.edu/ns/query> ?o } ' | tail -n+2)
+  #eval query=$(arq --results=csv --data=queries.ttl --query=- <<<'select * WHERE {<http://experts.ucdavis.edu/schema/queries/publication_types> <http://ucdavis.edu/ns/query> ?o } ' | tail -n+2)
 
+  [[ "$query" == "-" ]] && query=$(</dev/stdin)
 
-  [[ -n $endpoint ]] || endpoint=${G[endpoint]}
+  query="$(prefix)
+$query"
 
-  local inp=$(parse_qp $endpoint)
-  eval "declare -A qp=${inp#*=}"
-  if [[ ${qp[proto]} == 'file' ]]; then
-    echo ARG ${qp[path]};
+  if [[ -z $endpoint || -n $print_only ]]; then
+    echo "$query";
+    exit 0;
+  fi;
+  local ep
+  inp=$(parse_url "$endpoint")
+  eval "declare -A ep=${inp#*=}"
+  if [[ "${ep[proto]}" == 'file' ]]; then
+    arq --results="$format" --query=- --data="${ep[path]}" <<<"$query"
   else
-    echo http POST ${qp[endpoint]}
+    log http POST "${ep[endpoint]}"
   fi
 }
 
@@ -530,7 +551,7 @@ function login() {
 
     while true; do
 	    case $1 in
-        -a | --auth ) auth=$2; shift 2;;
+        -a | --auth ) auth="$2"; shift 2;;
 	      -- ) shift; break;;
 	      *) shift; break;
       esac
@@ -613,7 +634,7 @@ function mint() {
 
     while true; do
 	    case $1 in
-        --proxy ) proxy=$2; shift 2;;
+        --proxy ) proxy="$2"; shift 2;;
         -c | --csv ) csv="--csv=$2"; shift 2;;
         -v | --verify) verify=1; shift ;;
         -A | --array ) array='--array'; shift ;;
