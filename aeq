@@ -89,7 +89,7 @@ function main.init() {
 	    case $1 in
         -A | --api) CMD[api]=$2; shift 2;;
 	      --session | --http_session) CMD[http_session]=$2;  shift 2;;
-	      -v | --verbose) G[verbose]=1;  shift;;
+	      -v | --verbose) CMD[verbose]=1;  shift;;
         -p | --prefix )
           p[${2%%:*}]=${2#*:};
           shift 2;;
@@ -104,15 +104,21 @@ function main.init() {
 
     local config
     # Read the configuration file(s)
-    for config in ${G[AEQ_HOME]}/config/aeq.yml \
-                  ${G[HOME]}/.config/aeq/aeq.yml ./.aeq.yml; do
+    for config in ${G[aeq_home]}/config/aeq.yml \
+                  ${G[home]}/.config/aeq/aeq.yml ./.aeq.yml; do
       if [[ -f $config ]]; then
         eval "$(_parse_yaml "$config")"
       fi
     done
 
-    # COMMAND LINE FOR THESE OVER YAML file
-    for i in http_session http_print; do
+    # system variables (AEQ_FOO_BAR) over config file
+    for i in "${!G[@]}"; do
+      eval v=\$AEQ_${i^^}
+      [[ -n $v ]] && G[$i]=$v
+    done
+
+    # command line over config and over system var
+    for i in "${!CMD[@]}"; do
       [[ -n ${CMD[$i]} ]] && G[$i]=${CMD[$i]};
     done
 
@@ -177,7 +183,7 @@ function main.cmd () {
       config ) # informational requests
         declare -p G
         ;;
-	    prefix | parse_url | log | err) # utility functions
+	    prefix | parse_url | bind_array | log | err) # utility functions
 	      $cmd "$@";
 	      ;;
 	    *)
@@ -261,12 +267,12 @@ specified on the command line via the global C<--prefix> command.
 function prefix() {
   for k in "${!G[@]}"; do
     if [[ $k =~ ^cmd_prefix_ ]]; then
-      echo "PREFIX ${k#cmd_prefix_}: ${G[$k]}"
+      echo "PREFIX ${k#cmd_prefix_}: <${G[$k]}>"
     fi
   done | sort -u
 }
 
-: <<=cut
+: <<='cut'
 =head2 QUERY
 
 aeq query --endpoint=url --format=output
@@ -290,7 +296,7 @@ application uses the C<arq> program.  If the endpoint is a C<url:> then the
 query will ue use C<httpie>.
 
 
-=item B<--format=I<csv|json|jsonld|ttl|array|>>
+=item B<--format=I<csv|json|jsonld|ttl|bash|>>
 
 Specify the desired output format.
 
@@ -298,7 +304,13 @@ These are the mime-type and include:
 C<text/csv>, C<application/ld+json>, C<text/turtle>, C<text/nquads>.  Note that
 not all formats work on all types, eg C<text/csv> will fail on C<construct> style queries.  The default is C<application/ld+json>
 
-./aeq -n --prefix='foo:<http://bar.com/>' query --endpoint=queries.ttl -p --query=$'select ?s ?p ?o\nwhere{ ?s ?p ?o} LIMIT 2' | arq --data=queries.ttl --query=- --results=JSON| jq -r '.head.vars as $head | .results.bindings[] | to_entries| "declare -A R=("+(map("["+.key+"]=\""+.value.value+"\"") | join(" "))+")"
+The C<bash> format deserves a bit more description.  If selected, each line in
+the return will match a bash array description that can be used for further
+bash-script processing.  Use the bash C<read> function to process these, eg.
+
+  function testR () { "$1"; echo ${R[s]};}
+  ans="$(./aeq query --endpoint=queries.ttl --query=$'select ?s ?p ?o\nwhere{ ?s aeq:query ?o} limit 3' --format=bash)"
+  while IFS= read -r line; do testR "$line"; done <<<$ans
 
 =back
 
@@ -306,18 +318,29 @@ not all formats work on all types, eg C<text/csv> will fail on C<construct> styl
 
 function query() {
   local opts
+  declare -A mime=(
+    [csv]='text/csv'
+    [jsonld]='application/ld+json'
+    [ttl]='text/turtle'
+    [json]='application/json'
+    [nquads]='text/nquads'
+    [bash]='application/json'
+  );
+
   opts=$(${G[shell_getopt]} \
-                -o f:e:pq: \
-                --long print,format:,endpoint:,query: \
+                -o f:e:pq:b: \
+                --long print,format:,endpoint:,query:,bind: \
                 -n 'aeq query' -- "$@") || err 1
 
   eval set -- "$opts"
 
   local query=
-  local format="application/ld+json"
+  local format="ttl"
   local endpoint="${G[endpoint]}";
   local print_only=;
   local inp
+  #  declare -A bind;
+  local bind=();
 
   while true; do
 	  case $1 in
@@ -325,369 +348,53 @@ function query() {
       -e | --endpoint ) endpoint="$2"; shift 2;;
       -p | --print-only ) print_only=1; shift ;;
       -q | --query ) query="$2"; shift 2;;
+      -b | --bind )  bind+=("$2"); shift 2;;
+#      -b | --bind )  bind[${2%%:*}]=${2#*:}; shift 2;;
 	    -- ) shift; break;;
 	    *) shift; break;
     esac
   done
 
-  #eval query=$(arq --results=csv --data=queries.ttl --query=- <<<'select * WHERE {<http://experts.ucdavis.edu/schema/queries/publication_types> <http://ucdavis.edu/ns/query> ?o } ' | tail -n+2)
+  [[ -z ${mime[$format]} ]] && err 1 "Invalid format $format.  Must be one of <${!mime[*]}>"
 
   [[ "$query" == "-" ]] && query=$(</dev/stdin)
 
-  query="$(prefix)
-$query"
+  query="$(prefix)"$'\n'"$query"
+
+    # fix Binds
+#  for i in "${!bind[@]}"; do
+  for i in "${bind[@]}"; do
+    local X='|'
+    log BIND "$i"
+#    query=$(sed -e "s${X}WHERE *{${X}WHERE {bind($bind_in as \?$i)${X}i" <<<"$query")
+    query=$(sed -e "s${X}WHERE *{${X}WHERE { bind${i} ${X}i" <<<"$query")
+  done
 
   if [[ -z $endpoint || -n $print_only ]]; then
     echo "$query";
     exit 0;
   fi;
+
   local ep
   inp=$(parse_url "$endpoint")
   eval "declare -A ep=${inp#*=}"
   if [[ "${ep[proto]}" == 'file' ]]; then
-    arq --results="$format" --query=- --data="${ep[path]}" <<<"$query"
+    if [[ "$format" == "bash" ]]; then
+      arq --results="json" --query=- --data="${ep[path]}" <<<"$query" |
+        jq -r '.head.vars as $head | .results.bindings[] | to_entries| "declare -A R=("+(map("["+.key+"]=$'"'"'"+(.value.value|gsub("(?<e>[$`\"'"'"'])";"\\"+(.e)))+"'"'"'") | join(" "))+")"|gsub("\n";"\\n")'
+    else
+      arq --results="$format" --query=- --data="${ep[path]}" <<<"$query"
+    fi
   else
-    log http POST "${ep[endpoint]}"
+    if [[ "$format" == "bash" ]]; then
+      http --print=b --form "${ep[endpoint]}" Accept:"${mime[$format]}" query="$query" |
+        jq -r '.head.vars as $head | .results.bindings[] | to_entries| "declare -A R=("+(map("["+.key+"]=$'"'"'"+(.value.value|gsub("(?<e>[$`\"'"'"'])";"\\"+(.e)))+"'"'"'") | join(" "))+")"|gsub("\n";"\\n")'
+    else
+      http --print=b --form "${ep[endpoint]}" Accept:"${mime[$format]}" query="$query"
+    fi
   fi
 }
 
-
-: <<='cut'
-
-=head2 ARGS_TO_ANVL
-
-   aeq args_to_anvl [anvl parameters]
-
-C<aeq args_to_anvl> reads passed parameters as set of items to
-include in an ANVL file, and output that ANVL file to stdout.  In
-keeping with ANVL format, arguments are delinated into key:value pairs
-using the colon C<:>.  Like normal ANVL, if you want a colon as part
-of your key, then that needs to be escaped.  The actual values
-themselves will be verified and also escaped if they need to be.
-
-  # This is a simple example for two parameters
-  aeq args_to_anvl erc.who:Quinn erc.what:Eskimo
-
-  #This example shows that value escaping is a thing.
-  ./aeq args_to_anvl erc.who:Quinn erc.what:Eskimo where:$'The\nfrozen\north'
-
-=cut
-
-function args_to_anvl() {
-  local nv='^([^:]+)[ \t]*:[ \t]*(.*)$'
-  local n
-  local v
-
-  declare -A update
-
-	while [[ -n $1 ]]; do
-	  case $1 in
-	    -- ) shift; break;;
-	    *)
-        if [[ $1 =~ $nv ]]; then
-          n=${BASH_REMATCH[1]};
-          v="${BASH_REMATCH[2]}";
-          update[$n]=$(decode "$v");
-        else
-          log rest $1
-          err 1 "Bad Option:" $1
-        fi
-        shift;;
-    esac
-  done
-
-  local inp
-  # if [[ ! -t 0 ]]; then
-  #   inp=$(anvl -A)
-  #   eval "declare -A inp_anvl=${inp#*=}"
-  #   for n in ${!inp_anvl[@]}; do
-  #     update[$n]=${inp_anvl[$n]};
-  #   done
-  # fi
-
-  local anvl=$(array_to_anvl "$(declare -p update)")
-  echo "$anvl"
-}
-
-: <<='cut'
-
-=head2 ARRAY_TO_ANVL
-
-   aeq array_to_anvl "$(declare -p foo)"
-
-C<aeq array_to_anvl> reads a bash associated array as the mand
-outputs ANVL formatted data from C<stdin> and reformats it as an ANVL
-file.  This is typically a debug function, but could be used in script
-environment to mint values for example, where the output of this file
-is piped to the stdin for a C<aeq mint> command.
-
-  # This example converts a simple ANVL file to a bash array
-  declare -A foo;
-  foo[erc.who]=Quinn
-  foo[erc.what]=Eskimo
-  aeq array_to_anvl "$(declare -p foo)"
-
-=cut
-
-function array_to_anvl() {
-  eval "declare -A anvl="${1#*=}
-  for n in ${!anvl[@]}; do
-    echo $(encode "$n"): $(encode "${anvl[$n]}")
-  done
-}
-
-: <<='cut'
-
-=head2 GET
-
-aeq I<options> B<get> [--array] [--csv=I<columns>] [--header] ARK(s)
-
-B<aeq get> retrieves existing ARKS from the aeq server, and displays them
-either as anvl (default), csv or as a bash array for evaluation. The CSV format
-is most suitable for retrieving multiple arks.
-
-=head3 GET OPTIONS
-
-=over 4
-
-=item B<--csv=I<columns>>
-
-You can specify the columns that you would like to retrieve using this
-parameter. Somewhat following anvl conventions, the column names are B<:>
-delimited. This is a convenient way to create a table from a list of ARKs.
-
-=item B<--header>
-
-When specifing a I<--csv> command, this will include a header on the first row
-of the output.
-
-=item B<--array>
-
-This will output a bash style associative array from a given ARK, where each key
-of the array is a key of the retrieved ANVL format. these can be C<eval>ed for
-use later in a bash script. For example the command C<eval \$(./aeq get --array
-ark:/87287/d7q30n); echo \${anvl[_target]}>
-
-=back
-
-=cut
-
-function get () {
-  local opts=`${G[shell_getopt]} -o c:hA --long csv:,header,array -n 'aeq get' -- "$@"`
-  if [ $? != 0 ] ; then echo "Bad Command Options." >&2 ; exit 1 ; fi
-
-  eval set -- "$opts"
-
-  local header
-  local csv=''
-  local array=''
-  while true; do
-	  case $1 in
-      -A | --array ) array='-A'; shift;;
-      -c | --csv ) csv="$2"; shift 2;;
-      -h | --header )
-        header=1;
-        shift;;
-	    -- ) shift; break;;
-	    *) shift; break;
-    esac
-  done
-
-  local i
-  local arr;
-  local header_str
-  if [[ -n "$csv" && -n "$header" ]]; then
-    echo ${csv//:/,}
-  fi
-
-  [[ -n $csv ]] && csv="--csv=$csv"
-
-  for i in $@; do
-    if [[ -z $csv && -z $array ]]; then
-      _http GET https://aeq.cdlib.org/id/$(fq $i)
-    else
-      local resp=$(_http --print=b GET https://aeq.cdlib.org/id/$(fq $i))
-      anvl $csv $array --ark="$i" <<<$resp;
-    fi
-  done
-}
-
-:<<=cut
-
-=head2 LOGIN
-
-  aeq login --auth=USER[:PASS]
-
-B<aeq login> is a simple wrapper around the B<httpie --auth=USER:PASS> command.
-This allows users to setup their basic authorization, which is then stored in
-the standard httpie session paratmeters. It is possible to maintain multiple users,
-via the aeq I<--session> parameter to maintain different users, eg.
-
-  aeq --session=ucd-legacy --auth=ucd-legacy
-
-After which the session C<ucd-legacy>, will be set as a new httpie session, with
-the saved authorization.
-
-=head3 LOGIN OPTIONS
-
-=over 4
-
-=item B<-a|--auth=USER[:PASS]>
-
-You specify the basic authentication for the aeq.cdlib.org server. If you only
-specify the USER, then you are prompted for the password.
-
-=back
-
-=cut
-
-function login() {
-    local opts=`${G[shell_getopt]} -o a --long auth: -n 'aeq login' -- "$@"`
-    if [ $? != 0 ] ; then echo "Bad Command Options." >&2 ; exit 1 ; fi
-
-    eval set -- "$opts"
-
-    local auth=
-
-    while true; do
-	    case $1 in
-        -a | --auth ) auth="$2"; shift 2;;
-	      -- ) shift; break;;
-	      *) shift; break;
-      esac
-    done
-   _http --auth=${auth} https://aeq.cdlib.org/login
-}
-
-: <<=cut
-=head2 MINT
-
-  aeq [global_options] mint [--verify] [--proxy=proxy_server] [key:value] [key:value] ...
-
-C<aeq mint> creates mints a new ark, under the specified C<--base> with the
-passed C<key:value> pairs. The output of the mint command can be specified using
-C<--csv> or C<--array>, just as with the L</"GET"> command. Specifing a
-C<--proxy> will create another request, where the C<_target:> key for the ark
-will be set to a local proxy.
-
-C<aeq mint> uses both the C<--session> option and C<--base> options to specify
-authorization, and the base to mint the ark.
-
-  aeq --session=aeq --base=ark://99999/fk4 mint erc.who:Quinn erc.what:'The Eskimo'
-
-Please note that by default, I<unlike the aeq service>, all arks are created
-with the specification C<_status:reserved>. You can change that behavior by
-including the _status as one of the C<key:value> pairs.
-
-=head3 MINT OPTIONS
-
-=over 4
-
-=item B<--proxy=proxy_server>
-
-Setting this parameter will cause the mint function, to perform an immediate
-L</"UPDATE"> where the target key value pair will be specified as
-C<_target:{proxy_server}{ark}>, the concatentation of the
-
-  aeq mint --proxy=https://ark.foo.edu/ -verify erc.who:Quinn erc.what:Eskimo
-    ./aeq mint --proxy=https://ark.foo.edu/ --verify erc.who:Quinn erc.what:Eskimo
-
-responds with:
-
-    success: ark:/99999/fk4qf9zb42
-    _updated: 1555441448
-    _target: https://ark.foo.edu/ark:/99999/fk4qf9zb42
-    erc.who: Quinn
-    _profile: erc
-    _export: yes
-    _owner: ucd-legacy
-    _ownergroup: ucd-library
-    _created: 1555441448
-    _status: reserved
-    erc.what: Eskimo
-
-
-=item B<--verify>
-
-After creating the ark, will L</"GET"> the ark to verify it was created. This
-will also output the record ANVL format, unless another option C<--array> or
-C<--csv> is specified.
-
-=item B<--csv=I<columns>> | =item B<--array>
-
-See L</GET> for output options.
-
-=back
-
-=cut
-
-function mint() {
-    local opts=`${G[shell_getopt]} -o p:c:vA --long proxy:,csv:,array,verify -n 'aeq mint' -- "$@"`
-    if [ $? != 0 ] ; then echo "Bad Command Options." >&2 ; exit 1 ; fi
-
-    eval set -- "$opts"
-
-    local proxy=
-    local csv
-    local array
-    local verify
-
-    while true; do
-	    case $1 in
-        --proxy ) proxy="$2"; shift 2;;
-        -c | --csv ) csv="--csv=$2"; shift 2;;
-        -v | --verify) verify=1; shift ;;
-        -A | --array ) array='--array'; shift ;;
-	      -- ) shift; break;;
-	      *) shift; break;
-      esac
-    done
-
-    local anvl=$(args_to_anvl "$POST" "$@")
-    local resp=$(_http --print=b POST https://aeq.cdlib.org/shoulder/${BASE[base]} Content-Type:text/plain <<<"$anvl")
-    resp=$(anvl -A <<<$resp);
-    eval "declare -A anvl="${resp#*=}
-    if [[ -z ${anvl[success]} ]]; then
-      err 1 "No success: $resp"
-    fi
-    local ark=${anvl[success]}
-    if [[ -n $proxy && -n ${ark} ]]; then
-      #sleep 1;
-      update --ark=${ark} _target:${proxy}${ark}
-    fi
-    if [[ -n $verify || -n $csv || -n $array ]]; then
-      get $csv $array $ark
-    else
-      echo $ark
-    fi
-}
-
-function encode() {
-  # urlencode <string>
-  old_lc_collate=$LC_COLLATE
-  LC_COLLATE=C
-
-  local length="${#1}"
-  for (( i = 0; i < length; i++ )); do
-    local c="${1:i:1}"
-    case $c in
-      [%:$'\n'$'\r'] ) printf '%%%02X' "'$c" ;;
-      * ) printf "$c" ;;
-# THis is URL encoding
-#      [a-zA-Z0-9.~_-]) printf "$c" ;;   # This is URL encoding
-#      *) printf '%%%02X' "'$c" ;;
-    esac
-  done
-
-  LC_COLLATE=$old_lc_collate
-}
-
-function decode() {
-  # urldecode <string>
-
-  local url_encoded="${1//+/ }"
-  printf '%b' "${url_encoded//%/\\x}"
-}
 
 function _http () {
   local stdinp=
@@ -710,73 +417,8 @@ function _http () {
   fi
 }
 
-# : <<=cut
-# =pod
-
-# =head2 aeq I<[options]> declare
-
-# The declare command will print a bash style, declare statement for each passed ARK.
-
-# =cut
-
-#function _declare () {
-#   for i in $@; do
-#     log D $i;
-#     fq_ark $i > /dev/null;
-#     declare -p ARK
-#   done
-# }
-
-
 : <<=cut
 =pod
-
-=head1 SCRIPTING
-
-=head2 CSV SCRIPTING
-
-Scripting with CSV files can be hard, if you are trying to parse complicated csv
-files. So a good method of scripting with csv files is to use another tool. For
-example, the L<csvtool|https://colin.maudry.com/csvtool-manual-page/> is a nice
-tool for scripting on csv files. C<csvtool> allows you to call a script on each
-row of a csv file, passing the values as positional parameters. You can make a
-small wrapper script to translate these positional parameters to key:value
-pairs, and then run the tool over a csv file to create or update files.
-
-For example, assume you have a csv file, C<in.csv> like this:
-
-    who,what,more
-    Quinn,The Eskimo,Bob Dylan
-    Sloopy,Hang on,The McCoys
-
-You can create a small script file, C<mint.sh> that looks like this:
-
-     # /bin/bash
-     base=ark:/99999/fk4
-     proxy=https://digital.ucdavis.edu/
-     cols=success:_target:erc.who:erc.what
-     aeq --base=${base} mint --proxy=${proxy} --csv=${cols} erc.who:"$1" erc.what:"$2"
-
-Then you can mint arks, and save the minted arks back to a csv file like this.
-The example shows how you might use ~csvtool~ to select only a set of columns.
-In practive, the little wrapper script can be a good place to add constants, or
-manipulate the columns before sending them off to aeq.
-
-    csvtool namedcol who,what in.csv |\
-    head | tail -n +2 | csvtool call ./mint.sh - | tee out.csv
-
-With the following results:
-
-    ark:/99999/fk4qc17z06,https://digital.ucdavis.edu/ark:/99999/fk4qc17z06,Quinn,The Eskimo
-    ark:/99999/fk4km0j474,https://digital.ucdavis.edu/ark:/99999/fk4km0j474,Sloopy,Hang on
-
-=head1 Related Tools
-
-L<rdf.sh|https://github.com/seebi/rdf.sh> is a shell script that provides script
-access to LDP platform requests. The UC Research Profiles shystem does not
-include LDP, but the tools share similar linked data formatting issues.  Parts
-of this program (eg. prefixes) were inspired by rdf.sh
-
 
 
 =head1 AUTHOR
@@ -807,13 +449,11 @@ declare -A G=(
   [prefix_vcard]="http://www.w3.org/2006/vcard/ns#"
   [prefix_vivo]="http://vivoweb.org/ontology/core#"
   [prefix_xsd]="http://www.w3.org/2001/XMLSchema#"
+  [prefix_aeq]="http://experts.ucdavis.edu/queries/schema#"
+  [prefix_q]="http://experts.ucdavis.edu/queries/"
+  [home]="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../lib/aeq" >/dev/null 2>&1 && pwd )"
 );
 
-if [[ -n ${AEQ_HOME} ]]; then
-  G[AEQ_HOME]=${AEQ_HOME}
-else
-  G[UCRP_HOME]="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-fi
 
 OPTS=();
 # This command runs until the first '-'prefixed parameter.

@@ -9,34 +9,45 @@ prefix vitro: <http://vitro.mannlib.cornell.edu/ns/vitro/0.7#>
 prefix cito:  <http://purl.org/spar/cito/>
 prefix vivo_inf: <http://vitro.mannlib.cornell.edu/default/vitro-kb-inf>
 prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-prefix rp:   <http://ucdavis.edu/ns/>
 prefix bibo:  <http://purl.org/ontology/bibo/>
 prefix vivo:  <http://vivoweb.org/ontology/core#>
 prefix obo:   <http://purl.obolibrary.org/obo/>
 prefix foaf:  <http://xmlns.com/foaf/0.1/>
-prefix query: <http://experts.ucdavis.edu/schema/queries/>
-prefix bind: <http://experts.ucdavis.edu/schema/queries/>
+prefix aeq: <http://experts.ucdavis.edu/queries/schema#>
+prefix q: <http://experts.ucdavis.edu/queries/>
 
-bind:pub
-    a rp:bind ;
+q:pub
+    a aeq:bind ;
     rdfs:label "Experts Publication URL" ;
-    rp:bindto "?pub" ;
-    rp:bind_type xsd:uri ;
+    aeq:bindto "?pub" ;
+    aeq:bind_type xsd:uri ;
     .
 
-bind:user
-    a rp:bind ;
+q:user
+    a aeq:bind ;
     rdfs:label "Expert Person URI" ;
-    rp:bindto "?user" ;
-    rp:bind_type xsd:uri ;
+    aeq:bindto "?user" ;
+    aeq:bind_type xsd:uri ;
     .
 
-query:publication_types
-    rdf:type  rp:construct_query, rp:query;
+q:test
+    rdf:type  aeq:construct_query, aeq:query;
     rdfs:label "Publication Type", "Example" ;
-    rp:optional_bind bind:pub ;
-    rp:optional_bind bind:type ;
-    rp:query """
+    aeq:optional_bind q:pub ;
+    aeq:optional_bind q:type ;
+    aeq:query """
+select ?pub a ?type
+WHERE {
+ "this" $'is' `whack`
+""" ;
+    .
+
+q:publication_types
+    rdf:type  aeq:construct_query, aeq:query;
+    rdfs:label "Publication Type", "Example" ;
+    aeq:optional_bind q:pub ;
+    aeq:optional_bind q:type ;
+    aeq:query """
 select ?pub a ?type
 WHERE {
  ?pub a ?type .
@@ -44,12 +55,12 @@ WHERE {
 """ ;
     .
 
-query:publications
-    rdf:type  rp:construct_query, rp:query;
+q:publications
+    rdf:type  aeq:construct_query, aeq:query;
     rdfs:label "Publication Type", "Example" ;
-    rp:optional_bind bind:pub ;
-    rp:optional_bind bind:user ;
-    rp:query """
+    aeq:optional_bind q:pub ;
+    aeq:optional_bind q:user ;
+    aeq:query """
 CONSTRUCT {
   ?pub rdf:type ?type ;
     ?pub_cp ?o ;
@@ -82,7 +93,7 @@ CONSTRUCT {
    (vcard:familyName cite:family)
   }
   GRAPH ?g {
-    bind(replace(str(?pub),str(ucdrp:),"") as ?pub_id)
+    bind(replace(str(?pub),str(q:),"") as ?pub_id)
     ?pub rdf:type ?type ;
       ?pub_p ?o ;
       vivo:relatedBy ?authorship .
