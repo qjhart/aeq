@@ -75,9 +75,39 @@ function _parse_yaml() {
    }'
 }
 
+# global Variables
+declare -A G=(
+  [endpoint]=''
+  [http_ssl]="tls1.2"
+  [http_print]="b"
+  [http_session]="aeq"
+  [util_http]="http"
+  [util_jq]="jq"
+  [prefix_bibo]="http://purl.org/ontology/bibo/"
+  [prefix_bind]="http://experts.ucdavis.edu/schema/bind/"
+  [prefix_foaf]="http://xmlns.com/foaf/0.1/"
+  [prefix_obo]="http://purl.obolibrary.org/obo/"
+  [prefix_purl]="http://purl.org/ontology/bibo/"
+  [prefix_query]="http://experts.ucdavis.edu/schema/queries/"
+  [prefix_rdf]="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  [prefix_rdfs]="http://www.w3.org/2000/01/rdf-schema#"
+  [prefix_skos]="http://www.w3.org/2004/02/skos/core#"
+  [prefix_experts]="http://experts.library.ucdavis.edu/"
+  [prefix_iam]="http://iam.ucdavis.edu/schema#"
+  [prefix_harvest_iam]="http://iam.ucdavis.edu/"
+  [prefix_harvest_oap]="http://oapolicy.universityofcalifornia.edu/"
+  [prefix_oap]="http://oapolicy.universityofcalifornia.edu/vocab#"
+  [prefix_vcard]="http://www.w3.org/2006/vcard/ns#"
+  [prefix_vivo]="http://vivoweb.org/ontology/core#"
+  [prefix_xsd]="http://www.w3.org/2001/XMLSchema#"
+  [prefix_aeq]="http://experts.ucdavis.edu/queries/schema#"
+  [prefix_q]="http://experts.ucdavis.edu/queries/"
+  [home]="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../lib/aeq" >/dev/null 2>&1 && pwd )"
+);
+
 function main.init() {
   local opts;
-    if ! opts=$(${G[shell_getopt]} -o A:bnhS:v --long prefix:,no-default-prefix,verbose,http_session:,session:,help -n 'aeq' -- "$@"); then
+    if ! opts=$(${G[shell_getopt]} -o A:bnhS:v --long ep:,endpoint:,prefix:,no-default-prefix,verbose,http_session:,session:,help -n 'aeq' -- "$@"); then
     echo "Bad Command Options." >&2 ; exit 1 ; fi
 
     eval set -- "$opts"
@@ -101,6 +131,11 @@ function main.init() {
 	      *) shift; break;
       esac
     done
+
+    # We also look for FUSEKI_HOST
+    if [[ -n $FUSEKI_HOST ]]; then
+      G[endpoint]=$FUSEKI_HOST
+    fi
 
     local config
     # Read the configuration file(s)
@@ -335,12 +370,12 @@ function query() {
 
   opts=$(${G[shell_getopt]} \
                 -o f:e:pq:b: \
-                --long print,format:,endpoint:,query:,bind: \
+                --long print-only,format:,endpoint:,query:,bind: \
                 -n 'aeq query' -- "$@") || err 1
 
   eval set -- "$opts"
 
-  local query=
+  local query='-'
   local format="ttl"
   local endpoint="${G[endpoint]}";
   local print_only=;
@@ -351,7 +386,7 @@ function query() {
   while true; do
 	  case $1 in
       -f | --format ) format="$2"; shift 2;;
-      -e | --endpoint ) endpoint="$2"; shift 2;;
+#      -e | --endpoint ) endpoint="$2"; shift 2;;
       -p | --print-only ) print_only=1; shift ;;
       -q | --query ) query="$2"; shift 2;;
       -b | --bind )  bind+=("$2"); shift 2;;
@@ -443,34 +478,6 @@ function _http () {
 Quinn Hart <qjhart@ucdavis.edu>
 
 =cut
-
-
-#MAIN
-# global Variables
-declare -A G=(
-  [http_ssl]="tls1.2"
-  [http_print]="b"
-  [http_session]="aeq"
-  [util_http]="http"
-  [util_jq]="jq"
-  [prefix_bibo]="http://purl.org/ontology/bibo/"
-  [prefix_bind]="http://experts.ucdavis.edu/schema/bind/"
-  [prefix_foaf]="http://xmlns.com/foaf/0.1/"
-  [prefix_obo]="http://purl.obolibrary.org/obo/"
-  [prefix_purl]="http://purl.org/ontology/bibo/"
-  [prefix_query]="http://experts.ucdavis.edu/schema/queries/"
-  [prefix_rdf]="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-  [prefix_rdfs]="http://www.w3.org/2000/01/rdf-schema#"
-  [prefix_skos]="http://www.w3.org/2004/02/skos/core#"
-  [prefix_aeq]="http://experts.library.ucdavis.edu/individual/"
-  [prefix_vcard]="http://www.w3.org/2006/vcard/ns#"
-  [prefix_vivo]="http://vivoweb.org/ontology/core#"
-  [prefix_xsd]="http://www.w3.org/2001/XMLSchema#"
-  [prefix_aeq]="http://experts.ucdavis.edu/queries/schema#"
-  [prefix_q]="http://experts.ucdavis.edu/queries/"
-  [home]="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../lib/aeq" >/dev/null 2>&1 && pwd )"
-);
-
 
 OPTS=();
 # This command runs until the first '-'prefixed parameter.
