@@ -75,9 +75,39 @@ function _parse_yaml() {
    }'
 }
 
+# global Variables
+declare -A G=(
+  [endpoint]=''
+  [http_ssl]="tls1.2"
+  [http_print]="b"
+  [http_session]="aeq"
+  [util_http]="http"
+  [util_jq]="jq"
+  [prefix_bibo]="http://purl.org/ontology/bibo/"
+  [prefix_bind]="http://experts.ucdavis.edu/schema/bind/"
+  [prefix_foaf]="http://xmlns.com/foaf/0.1/"
+  [prefix_obo]="http://purl.obolibrary.org/obo/"
+  [prefix_purl]="http://purl.org/ontology/bibo/"
+  [prefix_query]="http://experts.ucdavis.edu/schema/queries/"
+  [prefix_rdf]="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  [prefix_rdfs]="http://www.w3.org/2000/01/rdf-schema#"
+  [prefix_skos]="http://www.w3.org/2004/02/skos/core#"
+  [prefix_experts]="http://experts.library.ucdavis.edu/"
+  [prefix_iam]="http://iam.ucdavis.edu/schema#"
+  [prefix_harvest_iam]="http://iam.ucdavis.edu/"
+  [prefix_harvest_oap]="http://oapolicy.universityofcalifornia.edu/"
+  [prefix_oap]="http://oapolicy.universityofcalifornia.edu/vocab#"
+  [prefix_vcard]="http://www.w3.org/2006/vcard/ns#"
+  [prefix_vivo]="http://vivoweb.org/ontology/core#"
+  [prefix_xsd]="http://www.w3.org/2001/XMLSchema#"
+  [prefix_aeq]="http://experts.ucdavis.edu/queries/schema#"
+  [prefix_q]="http://experts.ucdavis.edu/queries/"
+  [home]="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../lib/aeq" >/dev/null 2>&1 && pwd )"
+);
+
 function main.init() {
   local opts;
-    if ! opts=$(${G[shell_getopt]} -o A:bnhS:v --long prefix:,no-default-prefix,verbose,http_session:,session:,help -n 'aeq' -- "$@"); then
+    if ! opts=$(${G[shell_getopt]} -o A:bnhS:v --long ep:,endpoint:,prefix:,no-default-prefix,verbose,http_session:,session:,help -n 'aeq' -- "$@"); then
     echo "Bad Command Options." >&2 ; exit 1 ; fi
 
     eval set -- "$opts"
@@ -101,6 +131,11 @@ function main.init() {
 	      *) shift; break;
       esac
     done
+
+    # We also look for FUSEKI_HOST
+    if [[ -n $FUSEKI_HOST ]]; then
+      G[endpoint]=$FUSEKI_HOST
+    fi
 
     local config
     # Read the configuration file(s)
@@ -280,8 +315,8 @@ aeq query --endpoint=url --format=output
 C<aeq query> reads a linked data query from C<stdin> and performs that query,
 outputing that to C<stdout>.
 
-  # This example converts a simple ANVL file to a bash array
-  $ echo -e "select ?s ?p ?o WHERE { ?s ?p ?o.} LIMIT 5" | ./aeq query --endpoint=file:/.foo.ttl --format=text/csv
+  # This example selects some example values.
+  $ ./aeq query --endpoint=file:/.foo.ttl --format=text/csv <<< "select ?s ?p ?o WHERE { ?s ?p ?o.} LIMIT 5"
 
 The query function is used internally to perform all linked data queries.  If the endpoint is a
 
@@ -312,6 +347,12 @@ bash-script processing.  Use the bash C<read> function to process these, eg.
   ans="$(./aeq query --endpoint=queries.ttl --query=$'select ?s ?p ?o\nwhere{ ?s aeq:query ?o} limit 3' --format=bash)"
   while IFS= read -r line; do testR "$line"; done <<<$ans
 
+or
+
+  while IFS= read -r line; do
+    eval "$line"; echo ${R[o]};
+  done <<<$(./aeq/aeq --verbose query  --format=bash --endpoint=http://localhost:3030/tmp/sparql --query=- <<<'select * WHERE {graph ?g {?s ?p ?o}} LIMIT 5')
+
 =back
 
 =cut
@@ -329,12 +370,12 @@ function query() {
 
   opts=$(${G[shell_getopt]} \
                 -o f:e:pq:b: \
-                --long print,format:,endpoint:,query:,bind: \
+                --long print-only,format:,endpoint:,query:,bind: \
                 -n 'aeq query' -- "$@") || err 1
 
   eval set -- "$opts"
 
-  local query=
+  local query='-'
   local format="ttl"
   local endpoint="${G[endpoint]}";
   local print_only=;
@@ -345,7 +386,7 @@ function query() {
   while true; do
 	  case $1 in
       -f | --format ) format="$2"; shift 2;;
-      -e | --endpoint ) endpoint="$2"; shift 2;;
+#      -e | --endpoint ) endpoint="$2"; shift 2;;
       -p | --print-only ) print_only=1; shift ;;
       -q | --query ) query="$2"; shift 2;;
       -b | --bind )  bind+=("$2"); shift 2;;
@@ -376,21 +417,32 @@ function query() {
   fi;
 
   local ep
+  local data_arg
+  local q_cmd
   inp=$(parse_url "$endpoint")
   eval "declare -A ep=${inp#*=}"
   if [[ "${ep[proto]}" == 'file' ]]; then
+    if [[ -d ${ep[path]} ]]; then
+      log tdb2 ${ep[path]}
+      data_arg=loc
+      q_cmd=tdb2.tdbquery
+    else
+      log arq ${ep[path]}
+      data_arg=data
+      q_cmd=arq
+    fi
     if [[ "$format" == "bash" ]]; then
-      arq --results="json" --query=- --data="${ep[path]}" <<<"$query" |
+      ${q_cmd} --results="json" --query=- --${data_arg}="${ep[path]}" <<<"$query" |
         jq -r '.head.vars as $head | .results.bindings[] | to_entries| "declare -A R=("+(map("["+.key+"]=$'"'"'"+(.value.value|gsub("(?<e>[$`\"'"'"'])";"\\"+(.e)))+"'"'"'") | join(" "))+")"|gsub("\n";"\\n")'
     else
-      arq --results="$format" --query=- --data="${ep[path]}" <<<"$query"
+      ${q_cmd} --results="$format" --query=- --${data_arg}="${ep[path]}" <<<"$query"
     fi
   else
     if [[ "$format" == "bash" ]]; then
-      http --print=b --form "${ep[endpoint]}" Accept:"${mime[$format]}" query="$query" |
+      http --ignore-stdin --print=b --form "${ep[endpoint]}" Accept:"${mime[$format]}" query="$query" |
         jq -r '.head.vars as $head | .results.bindings[] | to_entries| "declare -A R=("+(map("["+.key+"]=$'"'"'"+(.value.value|gsub("(?<e>[$`\"'"'"'])";"\\"+(.e)))+"'"'"'") | join(" "))+")"|gsub("\n";"\\n")'
     else
-      http --print=b --form "${ep[endpoint]}" Accept:"${mime[$format]}" query="$query"
+      http --ignore-stdin --print=b --form "${ep[endpoint]}" Accept:"${mime[$format]}" query="$query"
     fi
   fi
 }
@@ -401,19 +453,19 @@ function _http () {
   local http="http --check-status --ssl=${G[http_ssl]} --session=${G[http_session]} --print=${G[http_print]}"
   if [[ $1 == '-n' || -n ${G[noop]} ]]; then
     [[ $1 == '-n' ]] && shift
-    if [[ ! -t 0 ]]; then
-      IFS='' read -r -d '' stdinp;
-      log "$http $@ <<<$(printf "%q" "$stdinp")"
-    else
+#    if [[ ! -t 0 ]]; then
+#      IFS='' read -r -d '' stdinp;
+#      log "$http $@ <<<$(printf "%q" "$stdinp")"
+#    else
       log "$http $@"
-    fi
+#    fi
   else
-    if [[ ! -t 0 ]]; then
-      IFS='' read -r -d '' stdinp;
-      $http $@  <<<"$stdinp"
-    else
+#    if [[ ! -t 0 ]]; then
+#      IFS='' read -r -d '' stdinp;
+#      $http $@  <<<"$stdinp"
+#    else
       $http $@
-    fi
+#    fi
   fi
 }
 
@@ -426,34 +478,6 @@ function _http () {
 Quinn Hart <qjhart@ucdavis.edu>
 
 =cut
-
-
-#MAIN
-# global Variables
-declare -A G=(
-  [http_ssl]="tls1.2"
-  [http_print]="b"
-  [http_session]="aeq"
-  [util_http]="http"
-  [util_jq]="jq"
-  [prefix_bibo]="http://purl.org/ontology/bibo/"
-  [prefix_bind]="http://experts.ucdavis.edu/schema/bind/"
-  [prefix_foaf]="http://xmlns.com/foaf/0.1/"
-  [prefix_obo]="http://purl.obolibrary.org/obo/"
-  [prefix_purl]="http://purl.org/ontology/bibo/"
-  [prefix_query]="http://experts.ucdavis.edu/schema/queries/"
-  [prefix_rdf]="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-  [prefix_rdfs]="http://www.w3.org/2000/01/rdf-schema#"
-  [prefix_skos]="http://www.w3.org/2004/02/skos/core#"
-  [prefix_aeq]="http://experts.library.ucdavis.edu/individual/"
-  [prefix_vcard]="http://www.w3.org/2006/vcard/ns#"
-  [prefix_vivo]="http://vivoweb.org/ontology/core#"
-  [prefix_xsd]="http://www.w3.org/2001/XMLSchema#"
-  [prefix_aeq]="http://experts.ucdavis.edu/queries/schema#"
-  [prefix_q]="http://experts.ucdavis.edu/queries/"
-  [home]="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../lib/aeq" >/dev/null 2>&1 && pwd )"
-);
-
 
 OPTS=();
 # This command runs until the first '-'prefixed parameter.
