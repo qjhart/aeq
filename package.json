@@ -4,7 +4,7 @@
   "description": "Query the Aggie Expert linked data server",
   "main": "index.js",
   "bin": [
-    "bin/aeq"
+    "bin/grants"
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -20,8 +20,12 @@
   },
   "homepage": "https://github.com/qjhart/aeq#readme",
   "dependencies": {
+    "@comunica/actor-init-sparql": "^1.22.3",
+    "@comunica/logger-pretty": "^1.22.0",
     "command-line-args": "^5.2.0",
     "command-line-usage": "^6.1.1",
+    "jsonld": "^5.2.0",
+    "md5": "^2.3.0",
     "rdf-namespaces": "^1.9.2",
     "sparqlalgebrajs": "^3.0.2",
     "traverse": "^0.6.6"

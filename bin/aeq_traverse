@@ -1,0 +1,126 @@
+#! /usr/bin/env node
+'use strict';
+
+const cli_args = require('command-line-args');
+const cli_usage = require('command-line-usage');
+const { translate, toSparql, toSparqlJs } = require('sparqlalgebrajs');
+const traverse = require('traverse');
+const SparqlGenerator = require('sparqljs').Generator;
+const generator=new SparqlGenerator();
+
+//const fs=require('fs');
+//const path=require('path');
+//const N3=require('n3');
+//const fetch=require('node-fetch');
+//const { namedNode, literal, defaultGraph, quad } = N3.DataFactory;
+//const n3u=N3.Util;
+//const urljoin = require('url-join');
+
+const options = [
+  {
+    name: 'help',
+    alias: 'h',
+    type: Boolean,
+    description: 'Display this usage guide.'
+  },
+  {
+    name: 'bind',
+    lazyMultiple:true,
+    description: 'Variables to bind'
+  },
+  {
+    name: 'query',
+    defaultOption:true,
+    description: 'Sparql query'
+  },
+  {
+    name: 'query@',
+    defaultOption:false,
+    description: 'Sparql query'
+  }
+
+];
+
+const cli = cli_args(options);
+
+if (cli.help) {
+  const usage = cli_usage(
+    [
+      {
+        header: 'Example',
+        content: 'Add Example Here.'
+      },
+      {
+        header: 'Options',
+        optionList: options,
+        description: 'Variables to bind'
+      }
+    ]
+  );
+  console.log(usage);
+  console.log(rdfs.label)
+  process.exit(0);
+}
+
+ //console.error(cli)
+let algebra=translate(cli.query);
+console.log(JSON.stringify(algebra));
+let bind=cli.bind || [];
+let vars={};
+
+bind.forEach(function(x) {
+  let [key, val]=x.split('=')
+  vars[key]={termType:"NamedNode",
+             value:val}
+});
+
+//  traverse(algebra).forEach(function (x) {
+//   if (typeof x === 'object') {
+//     if (x.termType === "Variable" && vars[x.value]) {
+//       if(this.parent.parent.node.type === 'project') {
+//         let project=this.parent.parent.node;
+//         project.input=
+//           {type:"extend",
+//            input:project.input,
+//            variable: {
+//              termType: "Variable",
+//              value: x.value},
+//            expression: {
+//              type: "expression",
+//              expressionType: "term",
+//              "term": vars[x.value]
+//            }
+//           };
+//         this.parent.parent.update(project);
+//       } else {
+//         this.update(vars[x.value]);
+//       }
+//     }
+//   }
+// });
+
+console.log('Updated');
+console.log(JSON.stringify(algebra));
+console.log('JS');
+console.log(JSON.stringify(toSparqlJs(algebra)));
+const test=toSparqlJs(algebra)
+
+test.prefixes={
+  rdfs:"http://www.w3.org/2000/01/rdf-schema#",
+  rdf:"http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+  experts:"http://experts.ucdavis.edu/",
+  person:"http://experts.ucdavis.edu/person/",
+  vivo:"http://vivoweb.org/"
+
+}
+console.log(generator.stringify(test))
+
+console.log('query');
+console.log(toSparql(algebra,{
+  allprefixes:true,
+  prefixes:{
+    rdfs:"http://www.w3.org/2000/01/rdf-schema#",
+    rdf:"http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  }
+}
+                    ));

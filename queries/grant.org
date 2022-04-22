@@ -1,0 +1,119 @@
+* Grants
+:PROPERTIES:
+:header-args:sparql: :url http://localhost:8081/experts/sparql
+:END:
+
+
+#+call: prefixes.org:lob-ingest()
+
+#+RESULTS:
+: 3
+
+** Direct grant requests
+
+#+name: grant_parts
+#+BEGIN_SRC sparql :notangle :noweb yes :var limit="1000" :var grant="grant:3982"
+  <<prefixes>>
+  #delete {?grant ?p ?o }
+  select ?o ?type
+  WHERE {
+    ?grant a vivo:Grant.
+    ?o a ?type.
+    filter(regex(str(?o),concat('^',str(?grant),'(#|$)')))
+  } limit ?limit
+#+END_SRC
+
+#+RESULTS: grant_parts
+| o                                                                             | type                                                             |
+|-------------------------------------------------------------------------------+------------------------------------------------------------------|
+| http://experts.ucdavis.edu/grant/3982#start                                   | http://vivoweb.org/ontology/core#DateTimeValue                   |
+| http://experts.ucdavis.edu/grant/3982#end                                     | http://vivoweb.org/ontology/core#DateTimeValue                   |
+| http://experts.ucdavis.edu/grant/3982                                         | http://vivoweb.org/ontology/core#Grant                           |
+| http://experts.ucdavis.edu/grant/3982#duration                                | http://vivoweb.org/ontology/core#DateTimeInterval                |
+| http://experts.ucdavis.edu/grant/3982#role301cd84172f5e7ac0275d5c4ac28512d-PI | http://vivoweb.org/ontology/core#PrincipalInvestigatorRole       |
+| http://experts.ucdavis.edu/grant/3982#role301cd84172f5e7ac0275d5c4ac28512d-PI | http://experts.ucdavis.edu/schema#GrantPrincipalInvestigatorRole |
+
+#+name: delete_grant
+#+BEGIN_SRC sparql :notangle :noweb yes :var limit="1000" :var construct="construct" :var uri="grant:3982" :format raw :wrap SRC ttl
+  <<prefixes>>
+  $construct { ?s ?p ?o. ?rs ?rp ?s. }
+  WHERE {
+    {
+      select distinct ?s where {
+        ?uri a ?type.
+        ?s a ?t.
+        filter(regex(str(?s),concat("^",str(?uri),"(#|$)")))
+      } order by ?s limit $limit
+    }
+    ?s ?p ?o.
+    ?rs ?rp ?s.
+  }
+#+END_SRC
+
+#+RESULTS: delete_grant
+#+begin_SRC ttl
+@prefix private: <http://experts.ucdavis.edu/private/> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix FoR:   <http://experts.ucdavis.edu/concept/FoR/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ucdrp: <http://experts.ucdavis.edu/schema#> .
+@prefix purl:  <http://purl.org/ontology/bibo/> .
+@prefix aeq:   <http://experts.ucdavis.edu/queries/schema#> .
+@prefix iam:   <http://iam.ucdavis.edu/schema#> .
+@prefix authorship: <http://experts.ucdavis.edu/authorship/> .
+@prefix vivo:  <http://vivoweb.org/ontology/core#> .
+@prefix free:  <http://experts.ucdavis.edu/concept/free> .
+@prefix harvest_iam: <http://iam.ucdavis.edu/> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix oap:   <http://oapolicy.universityofcalifornia.edu/vocab#> .
+@prefix work:  <http://experts.ucdavis.edu/work/> .
+@prefix query: <http://experts.ucdavis.edu/schema/queries/> .
+@prefix afn:   <http://jena.apache.org/ARQ/function#> .
+@prefix harvest_oap: <http://oapolicy.universityofcalifornia.edu/> .
+@prefix vcard: <http://www.w3.org/2006/vcard/ns#> .
+@prefix q:     <http://experts.ucdavis.edu/queries/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix person: <http://experts.ucdavis.edu/person/> .
+@prefix bibo:  <http://purl.org/ontology/bibo/> .
+@prefix grant: <http://experts.ucdavis.edu/grant/> .
+@prefix experts: <http://experts.ucdavis.edu/> .
+@prefix obo:   <http://purl.obolibrary.org/obo/> .
+
+person:301cd84172f5e7ac0275d5c4ac28512d
+        vivo:relatedBy  grant:3982 .
+
+grant:3982  a                  vivo:Grant ;
+        rdfs:label             "BIOLOGICAL SENSOR SYSTEMS...." ;
+        ucdrp:grantType        vivo:Grant ;
+        vivo:assignedBy        <http://experts.ucdavis.edu/funding_org/6766> ;
+        vivo:dateTimeInterval  <http://experts.ucdavis.edu/grant/3982#duration> ;
+        vivo:relates           <http://experts.ucdavis.edu/grant/3982#role301cd84172f5e7ac0275d5c4ac28512d-PI> , person:301cd84172f5e7ac0275d5c4ac28512d ;
+        vivo:sponsorAwardId    "B563119" ;
+        vivo:totalAwardAmount  74819 .
+
+<http://experts.ucdavis.edu/grant/3982#end>
+        a                       vivo:DateTimeValue ;
+        vivo:dateTime           "2007-07-31" ;
+        vivo:dateTimePrecision  vivo:yearMonthDayPrecision .
+
+<http://experts.ucdavis.edu/grant/3982#duration>
+        a           vivo:DateTimeInterval ;
+        vivo:end    <http://experts.ucdavis.edu/grant/3982#end> ;
+        vivo:start  <http://experts.ucdavis.edu/grant/3982#start> .
+
+<http://experts.ucdavis.edu/grant/3982#role301cd84172f5e7ac0275d5c4ac28512d-PI>
+        a                       ucdrp:GrantPrincipalInvestigatorRole , vivo:PrincipalInvestigatorRole ;
+        rdfs:label              "DAVIS, CRISTINA E" ;
+        ucdrp:role_person_name  "DAVIS, CRISTINA E" ;
+        obo:RO_000052           person:301cd84172f5e7ac0275d5c4ac28512d ;
+        vivo:relatedBy          grant:3982 .
+
+<http://experts.ucdavis.edu/funding_org/6766>
+        vivo:assigns  grant:3982 .
+
+<http://experts.ucdavis.edu/grant/3982#start>
+        a                       vivo:DateTimeValue ;
+        vivo:dateTime           "2006-08-01" ;
+        vivo:dateTimePrecision  vivo:yearMonthDayPrecision .
+#+end_SRC

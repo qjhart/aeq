@@ -3,18 +3,38 @@
 
 const cli_args = require('command-line-args');
 const cli_usage = require('command-line-usage');
-const { translate, toSparql, toSparqlJs } = require('sparqlalgebrajs');
-const traverse = require('traverse');
-const SparqlGenerator = require('sparqljs').Generator;
-const generator=new SparqlGenerator();
 
-//const fs=require('fs');
-//const path=require('path');
-//const N3=require('n3');
-//const fetch=require('node-fetch');
-//const { namedNode, literal, defaultGraph, quad } = N3.DataFactory;
-//const n3u=N3.Util;
-//const urljoin = require('url-join');
+
+const newEngine = require('@comunica/actor-init-sparql').newEngine;
+const sparql = newEngine();
+const LoggerPretty=require('@comunica/logger-pretty').LoggerPretty;
+
+//const qEngine = require('@comunica/query-sparql-file').QueryEngine;
+//const q_sparql= new qEngine();
+
+const Bindings = require('@comunica/bus-query-operation').Bindings;
+const DataFactory = require('rdf-data-factory').DataFactory;
+
+const factory = new DataFactory();
+
+//JSONLD utilities
+const jsonld = require('jsonld');
+const md5 = require('md5');
+
+//
+const fs = require('fs')
+
+function set_bindings(cli_binds) {
+  let binds={}
+  cli_binds.forEach(function(x) {
+    let [key, val]=x.split('=')
+//    binds[key]=factory.literal(val)
+    binds[key]=factory.namedNode(val)
+  });
+
+  return new Bindings(binds);
+}
+
 
 const options = [
   {
@@ -32,87 +52,104 @@ const options = [
     name: 'query',
     defaultOption:true,
     description: 'Sparql query'
+  },
+  {
+    name: 'query@',
+    defaultOption:false,
+    description: 'Sparql query file'
   }
 ];
 
 const cli = cli_args(options);
 
+const usage = cli_usage(
+  [
+    {
+      header: 'AEQ',
+      content: 'Aggie Experts Query'
+    },
+    {
+      header: 'Options',
+      optionList: options
+    }
+  ]
+);
+
 if (cli.help) {
-  const usage = cli_usage(
-    [
-      {
-        header: 'Example',
-        content: 'Add Example Here.'
-      },
-      {
-        header: 'Options',
-        optionList: options,
-        description: 'Variables to bind'
-      }
-    ]
-  );
   console.log(usage);
-  console.log(rdfs.label)
   process.exit(0);
 }
 
-//console.error(cli)
-let algebra=translate(cli.query);
-let bind=cli.bind || [];
-let vars={};
+if( !cli.query ) {
+  if(cli['query@']) {
+    cli.query=fs.readFileSync(cli['query@'],{encoding:'utf8',flag:'r'})
+    console.log(cli.query)
+  } else {
+    console.error('No query Specified')
+//    console.error(usage);
+    process.exit(1);
+  }
+}
 
-bind.forEach(function(x) {
-  let [key, val]=x.split('=')
-  vars[key]={termType:"NamedNode",
-             value:val}
-});
+const query=`
+PREFIX experts: <http://experts.ucdavis.edu/>
+PREFIX grant: <http://experts.ucdavis.edu/grant/>
+PREFIX vivo: <http://vivoweb.org/ontology/core#>
 
-traverse(algebra).forEach(function (x) {
-  if (typeof x === 'object') {
-    if (x.termType === "Variable" && vars[x.value]) {
-      if(this.parent.parent.node.type === 'project') {
-        let project=this.parent.parent.node;
-        project.input=
-          {type:"extend",
-           input:project.input,
-           variable: {
-             termType: "Variable",
-             value: x.value},
-           expression: {
-             type: "expression",
-             expressionType: "term",
-             "term": vars[x.value]
-           }
-          };
-        this.parent.parent.update(project);
-      } else {
-        this.update(vars[x.value]);
-      }
+select ?grant WHERE {
+  ?grant a vivo:Grant;
+} LIMIT 10
+`;
+
+
+let bindings=set_bindings(cli.bind || []);
+
+  do_query(cli.query,bindings);
+
+async function do_query(query,bindings) {
+  const result = await sparql.query(
+    query,
+    {
+      sources:["http://localhost:8081/experts/sparql"],
+      initialBindings:bindings
     }
-  }
-});
+  );
 
-console.log(JSON.stringify(algebra));
-console.log('JS');
-console.log(JSON.stringify(toSparqlJs(algebra)));
-const test=toSparqlJs(algebra)
+  async function example_select_result(result) {
+  result.bindingsStream.on('data', (d) => {
+    console.log(d.get('?grant').value);
+  });
 
-test.prefixes={
-  rdfs:"http://www.w3.org/2000/01/rdf-schema#",
-  rdf:"http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-  experts:"http://experts.ucdavis.edu/",
-  person:"http://experts.ucdavis.edu/person/",
-  vivo:"http://vivoweb.org/"
+  result.bindingsStream.on('error', (error) => {
+    console.error(`ERROR ${error}`);
+  });
 
+  result.bindingsStream.on('end', () => {
+  });
 }
-console.log(generator.stringify(test))
 
-console.log('query');
-console.log(toSparql(algebra,{
-  allprefixes:true,
-  prefixes:{
-    rdfs:"http://www.w3.org/2000/01/rdf-schema#",
-    rdf:"http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-  }
+  //example_select_result(result)
+
+//  const { data } = await sparql.resultToString(result,'application/sparql-results+json');
+  const { data } = await sparql.resultToString(result,'application/ld+json');
+  const context={"@context":{
+    experts: "http://experts.ucdavis.edu/",
+    grant: "http://experts.ucdavis.edu/grant/",
+    vivo: "http://vivoweb.org/ontology/core#"
+  }};
+
+  var file=''
+  // Maybe, I could just add the quads, but I don't see it in the jsonld package
+  data.on('data',(d)=>{file+=d;});
+  data.on('end',async function() {
+
+    const doc=JSON.parse(file);
+    const  framed  = await jsonld.frame(doc,context)
+    console.log(JSON.stringify(framed));
+    const canonized = await jsonld.canonize(doc,{
+        algorithm: 'URDNA2015',
+      format: 'application/n-quads'
+    })
+//    console.log(md5(canonized));
+  });
 }
-                    ));

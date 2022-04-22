@@ -1,0 +1,398 @@
+* Authorships
+:PROPERTIES:
+:header-args:sparql: :url http://localhost:8081/experts/sparql
+:END:
+
+
+#+call: prefixes.org:lob-ingest()
+
+#+RESULTS:
+: 3
+
+
+** Direct Authorship Requests
+
+#+name: authorship_parts
+#+BEGIN_SRC sparql :notangle :noweb yes :var limit="1000" :var authorship="authorship:2364120-3"
+  <<prefixes>>
+  #delete {?authorship ?p ?o }
+  select ?o ?type
+  WHERE {
+    ?authorship a ucdrp:authorship.
+    ?o a ?type.
+    filter(regex(str(?o),concat('^',str(?authorship),'(#|$)')))
+  } limit ?limit
+#+END_SRC
+
+#+RESULTS: authorship_parts
+| o                                                          | type                                         |
+|------------------------------------------------------------+----------------------------------------------|
+| http://experts.ucdavis.edu/authorship/2364120-3#vcard-name | http://www.w3.org/2006/vcard/ns#Name         |
+| http://experts.ucdavis.edu/authorship/2364120-3#vcard      | http://www.w3.org/2006/vcard/ns#Individual   |
+| http://experts.ucdavis.edu/authorship/2364120-3            | http://vivoweb.org/ontology/core#Authorship  |
+| http://experts.ucdavis.edu/authorship/2364120-3            | http://experts.ucdavis.edu/schema#authorship |
+
+#+name: delete_authorship
+#+BEGIN_SRC sparql :notangle  :noweb yes :var limit="5" :format raw :wrap SRC ttl :var authorship="authorship:2364120-3"
+  <<prefixes>>
+  #delete {?authorship ?p ?o }
+  select ?o
+  WHERE {
+    ?authorship a ucdrp:authorship.
+    ?part a ?type.
+    filter(regex(?part,concat('^',str(?authorship),'#|$')))
+  } limit ?limit
+#+END_SRC
+
+
+#+name: select_person_authorship
+#+BEGIN_SRC sparql  :noweb yes :var limit="5"
+<<prefixes>>
+describe ?a
+#select ?s WHERE {
+#select ?a
+WHERE {
+  ?a a ucdrp:authorship;
+     vivo:relates ?s;
+  .
+  {select ?s WHERE {
+    ?s a ucdrp:person.
+  } limit ?limit
+}
+#+END_SRC
+
+
+#+name: describe_person_authorship
+#+BEGIN_SRC sparql :notangle  :noweb yes :var limit="5" :format raw :wrap SRC ttl :var personx="person:no-person" :var person="person:f9ef1e530c617cd598171497b4a49e82"
+<<prefixes>>
+describe ?authorship
+WHERE {
+  ?authorship a ucdrp:authorship;
+     vivo:relates ?author;
+  .
+  {select ?author WHERE {
+bind(?person as ?author)
+    ?author a ucdrp:person.
+  } limit ?limit}
+}
+#+END_SRC
+
+
+#+call: describe_person_authorship(person="person:f9ef1e530c617cd598171497b4a49e82")
+
+
+#+RESULTS:
+#+BEGIN_SRC ttl
+@prefix experts_oap: <http://experts.ucdavis.edu/oap/> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix FoR:   <http://experts.ucdavis.edu/concept/FoR/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ucdrp: <http://experts.ucdavis.edu/schema#> .
+@prefix purl:  <http://purl.org/ontology/bibo/> .
+@prefix aeq:   <http://experts.ucdavis.edu/queries/schema#> .
+@prefix iam:   <http://iam.ucdavis.edu/schema#> .
+@prefix authorship: <http://experts.ucdavis.edu/authorship/> .
+@prefix vivo:  <http://vivoweb.org/ontology/core#> .
+@prefix free:  <http://experts.ucdavis.edu/concept/free> .
+@prefix harvest_iam: <http://iam.ucdavis.edu/> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix oap:   <http://oapolicy.universityofcalifornia.edu/vocab#> .
+@prefix work:  <http://experts.ucdavis.edu/work/> .
+@prefix query: <http://experts.ucdavis.edu/schema/queries/> .
+@prefix afn:   <http://jena.apache.org/ARQ/function#> .
+@prefix harvest_oap: <http://oapolicy.universityofcalifornia.edu/> .
+@prefix vcard: <http://www.w3.org/2006/vcard/ns#> .
+@prefix q:     <http://experts.ucdavis.edu/queries/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix person: <http://experts.ucdavis.edu/person/> .
+@prefix experts_iam: <http://experts.ucdavis.edu/iam/> .
+@prefix bibo:  <http://purl.org/ontology/bibo/> .
+@prefix experts: <http://experts.ucdavis.edu/> .
+@prefix obo:   <http://purl.obolibrary.org/obo/> .
+
+authorship:2439616  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:relates   work:2439616 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713715  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:2713715 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713712-4  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      4 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2713712-4#vcard> , work:2713712 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1442400-3  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      3 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/1442400-3#vcard> , work:1442400 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1452167  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   person:5291e4d36b94d14caae13c84f7bc5662 , work:1452167 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713715-3  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      3 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2713715-3#vcard> , work:2713715 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2364120  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   person:5291e4d36b94d14caae13c84f7bc5662 , work:2364120 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1765066  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:relates   work:1765066 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1434606-5  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      5 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/1434606-5#vcard> , work:1434606 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713714  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:2713714 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1452140  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   person:5291e4d36b94d14caae13c84f7bc5662 , work:1452140 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1765064-1  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      1 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/1765064-1#vcard> , work:1765064 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713716-2  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      2 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2713716-2#vcard> , work:2713716 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1442289-1  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:rank      1 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/1442289-1#vcard> , work:1442289 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2327636  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   person:90f20b686b4cb74f91358fce7896fdca , person:f9ef1e530c617cd598171497b4a49e82 , work:2327636 , person:a56ebbd0d44bb5d0a228b7a868a5e578 .
+
+authorship:2713719-1  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:rank      1 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2713719-1#vcard> , work:2713719 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713714-2  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      2 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2713714-2#vcard> , work:2713714 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713719  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:relates   work:2713719 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1452104  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" , "false" ;
+        vivo:relates   person:5291e4d36b94d14caae13c84f7bc5662 , work:1452104 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2449942  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:relates   work:2449942 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713718-1  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:rank      1 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2713718-1#vcard> , work:2713718 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1452104-1  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:rank      1 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/1452104-1#vcard> , work:1452104 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713713-2  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      2 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2713713-2#vcard> , work:2713713 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713713  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:2713713 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2327636-4  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      4 ;
+        vivo:relates   person:f9ef1e530c617cd598171497b4a49e82 , <http://experts.ucdavis.edu/authorship/2327636-4#vcard> , work:2327636 .
+
+authorship:2713711-2  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      2 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2713711-2#vcard> , work:2713711 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713720  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:relates   work:2713720 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1452167-3  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      3 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/1452167-3#vcard> , work:1452167 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713718  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:relates   work:2713718 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1765064  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:1765064 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713720-1  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:rank      1 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2713720-1#vcard> , work:2713720 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713712  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:2713712 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:639836-5  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      5 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/639836-5#vcard> , work:639836 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1442407  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:1442407 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1875203  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   person:5291e4d36b94d14caae13c84f7bc5662 , work:1875203 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713717  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:2713717 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1434606  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   person:5291e4d36b94d14caae13c84f7bc5662 , work:1434606 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1442289  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:relates   work:1442289 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713711  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:2713711 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1442400  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:1442400 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713716  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:2713716 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2439616-1  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:rank      1 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2439616-1#vcard> , work:2439616 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1442413  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:1442413 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:639836  a   ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:relates   work:639836 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1445886-4  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:rank      4 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/1445886-4#vcard> , work:1445886 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1445886  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:relates   work:1445886 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1452140-3  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      3 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/1452140-3#vcard> , work:1452140 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1442407-2  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      2 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/1442407-2#vcard> , work:1442407 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2713717-9  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      9 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2713717-9#vcard> , work:2713717 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1765066-2  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:rank      2 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/1765066-2#vcard> , work:1765066 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:2449942-1  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:rank      1 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/2449942-1#vcard> , work:2449942 , person:f9ef1e530c617cd598171497b4a49e82 .
+
+authorship:1442413-2  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "false" ;
+        vivo:rank      2 ;
+        vivo:relates   <http://experts.ucdavis.edu/authorship/1442413-2#vcard> , work:1442413 , person:f9ef1e530c617cd598171497b4a49e82 .
+#+END_SRC
+
+#+call: describe_person_authorship(authorship="authorship:2439616")
+
+#+RESULTS:
+#+BEGIN_SRC ttl
+@prefix experts_oap: <http://experts.ucdavis.edu/oap/> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix FoR:   <http://experts.ucdavis.edu/concept/FoR/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ucdrp: <http://experts.ucdavis.edu/schema#> .
+@prefix purl:  <http://purl.org/ontology/bibo/> .
+@prefix aeq:   <http://experts.ucdavis.edu/queries/schema#> .
+@prefix iam:   <http://iam.ucdavis.edu/schema#> .
+@prefix authorship: <http://experts.ucdavis.edu/authorship/> .
+@prefix vivo:  <http://vivoweb.org/ontology/core#> .
+@prefix free:  <http://experts.ucdavis.edu/concept/free> .
+@prefix harvest_iam: <http://iam.ucdavis.edu/> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix oap:   <http://oapolicy.universityofcalifornia.edu/vocab#> .
+@prefix work:  <http://experts.ucdavis.edu/work/> .
+@prefix query: <http://experts.ucdavis.edu/schema/queries/> .
+@prefix afn:   <http://jena.apache.org/ARQ/function#> .
+@prefix harvest_oap: <http://oapolicy.universityofcalifornia.edu/> .
+@prefix vcard: <http://www.w3.org/2006/vcard/ns#> .
+@prefix q:     <http://experts.ucdavis.edu/queries/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix person: <http://experts.ucdavis.edu/person/> .
+@prefix experts_iam: <http://experts.ucdavis.edu/iam/> .
+@prefix bibo:  <http://purl.org/ontology/bibo/> .
+@prefix experts: <http://experts.ucdavis.edu/> .
+@prefix obo:   <http://purl.obolibrary.org/obo/> .
+
+authorship:2439616  a  ucdrp:authorship , vivo:Authorship ;
+        vivo:favorite  "true" ;
+        vivo:relates   work:2439616 , person:f9ef1e530c617cd598171497b4a49e82 .
+#+END_SRC
+
+#+name: delete_person_authorship
+#+BEGIN_SRC sparql :notangle  :noweb yes :var limit="5" :format raw :wrap SRC ttl :var person="person:no-person"
+<<prefixes>>
+delete {?authorship ?p ?o }
+WHERE {
+  ?authorship a ucdrp:authorship;
+     vivo:relates ?author;
+  .
+  {select ?author WHERE {
+bind(?person as ?author)
+    ?author a ucdrp:person.
+  } limit ?limit}
+}
+#+END_SRC

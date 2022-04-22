@@ -1,0 +1,267 @@
+* Basic Queries
+:PROPERTIES:
+:header-args:sparql: :url http://localhost:8081/experts/sparql
+:END:
+
+** Basic Selections
+
+These are just some basic selection queries that can be used to get some very
+general information about the selections in the database.
+
+#+name: lob-ingest
+#+BEGIN_SRC elisp
+(org-babel-lob-ingest "prefixes.org");
+#+END_SRC
+
+#+RESULTS: lob-ingest
+: 3
+
+#+name: select_of_type
+#+BEGIN_SRC sparql :noweb yes :tangle basic/select_of_type.rp
+  <<prefixes>>
+  select ?s WHERE {
+    ?s a ?type.
+  } limit ?limit
+#+END_SRC
+
+#+call: select_of_type(type="ucdrp:person",limit="3")
+
+#+RESULTS:
+| s                                                                  |
+|--------------------------------------------------------------------|
+| http://experts.ucdavis.edu/person/825ce359f69a5b6b72412590d4913a79 |
+| http://experts.ucdavis.edu/person/1b9f745893ea8c821a3fc847e9775dbe |
+| http://experts.ucdavis.edu/person/b8bbd1e76f1b76c87fe36975ab5a2b2e |
+
+
+Another query that we want to include is a selection where you are passed a URI
+and a type, and it will respond with all the parts of that URI.  The type
+actually acts as a guard, and can not be included if you want to be not careful.
+
+
+#+name: select_hash
+#+BEGIN_SRC sparql :eval no :noweb yes :tangle basic/select_hash.rp :var select="select distinct"
+  <<prefixes>>
+  $select ?s where {
+   ?uri a ?type.
+   ?s a ?t.
+   filter(regex(str(?s),concat("^",str(?uri),"(#|$)")))
+  } order by ?s limit $limit
+#+END_SRC
+
+
+#+call: select_hash[:eval yes](uri="person:f9ef1e530c617cd598171497b4a49e82",type="ucdrp:person",limit="30")
+
+#+RESULTS:
+| s                                                                                                                                |
+|----------------------------------------------------------------------------------------------------------------------------------|
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82                                                               |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#identifier-figshare-for-institutions-user-account-id-10219597 |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#identifier-orcid-0000-0001-9829-8914                          |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#identifier-researcherid-M-4572-2018                           |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#identifier-scopus-author-id-6506365550                        |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#oapolicyId                                                    |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-name                                                    |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-oap-1                                                   |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-oap-1-email-f7f04c510197b3b5f5763bf9e891b3f8            |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-oap-1-name                                              |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-oap-1-web-0                                             |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-oap-1-web-1                                             |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-odr-1                                                   |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-odr-1-email                                             |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-odr-1-title                                             |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-odr-1-unit                                              |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-odr-1-url                                               |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-pps-1                                                   |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-pps-1-email                                             |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-pps-1-title                                             |
+| http://experts.ucdavis.edu/person/f9ef1e530c617cd598171497b4a49e82#vcard-pps-1-unit                                              |
+
+
+#+call: select_hash[:format raw :wrap SRC ttl :eval yes](uri="work:3266506",limit="3",select="describe")
+
+#+RESULTS:
+#+begin_SRC ttl
+@prefix private: <http://experts.ucdavis.edu/private/> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix FoR:   <http://experts.ucdavis.edu/concept/FoR/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ucdrp: <http://experts.ucdavis.edu/schema#> .
+@prefix purl:  <http://purl.org/ontology/bibo/> .
+@prefix aeq:   <http://experts.ucdavis.edu/queries/schema#> .
+@prefix iam:   <http://iam.ucdavis.edu/schema#> .
+@prefix authorship: <http://experts.ucdavis.edu/authorship/> .
+@prefix vivo:  <http://vivoweb.org/ontology/core#> .
+@prefix free:  <http://experts.ucdavis.edu/concept/free> .
+@prefix harvest_iam: <http://iam.ucdavis.edu/> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix oap:   <http://oapolicy.universityofcalifornia.edu/vocab#> .
+@prefix work:  <http://experts.ucdavis.edu/work/> .
+@prefix query: <http://experts.ucdavis.edu/schema/queries/> .
+@prefix afn:   <http://jena.apache.org/ARQ/function#> .
+@prefix harvest_oap: <http://oapolicy.universityofcalifornia.edu/> .
+@prefix vcard: <http://www.w3.org/2006/vcard/ns#> .
+@prefix q:     <http://experts.ucdavis.edu/queries/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix person: <http://experts.ucdavis.edu/person/> .
+@prefix bibo:  <http://purl.org/ontology/bibo/> .
+@prefix experts: <http://experts.ucdavis.edu/> .
+@prefix obo:   <http://purl.obolibrary.org/obo/> .
+
+work:3266506  a                     bibo:AcademicArticle , ucdrp:work ;
+        rdfs:label                  "Identification and evaluation of volatile organic compounds evolved during solarization with almond hull and shell amendments" ;
+        ucdrp:best_source           "dimensions" ;
+        ucdrp:insertionDateTime     "2022-01-30T02:49:02.371+00:00"^^xsd:dateTime ;
+        ucdrp:lastModifiedDateTime  "2022-01-09T16:26:00.26-08:00"^^xsd:dateTime ;
+        ucdrp:pagination_source     "epmc" ;
+        ucdrp:priority              2 ;
+        bibo:doi                    "10.1080/10962247.2020.1846637" ;
+        bibo:issue                  "3" ;
+        bibo:journal                "Journal of the Air & Waste Management Association" ;
+        bibo:pageEnd                "412" ;
+        bibo:pageStart              "400" ;
+        bibo:status                 bibo:published ;
+        bibo:volume                 "71" ;
+        vivo:dateTimeValue          <http://experts.ucdavis.edu/work/3266506#date> ;
+        vivo:hasPublicationVenue    <http://experts.ucdavis.edu/venue/issn:1096-2247> ;
+        vivo:hasSubjectArea         <http://experts.ucdavis.edu/concept/free/f1901967f9e50416835d57dec3994724> , FoR:09 , <http://experts.ucdavis.edu/concept/free/6e0f1dd7caf63a58e14d7842d55c60e5> , <http://experts.ucdavis.edu/concept/free/93a30171e623ff1611c2207347f2dc6a> , <http://experts.ucdavis.edu/concept/free/e4b9dca2448724ca25e388a0317a09c8> , FoR:05 , <http://experts.ucdavis.edu/concept/free/7d0d35c8905bd56f4c57ef2c017fe41e> , <http://experts.ucdavis.edu/concept/free/b22ae022cc5c0574905902d812d11ae9> , <http://experts.ucdavis.edu/concept/free/7f4e2480164840822b2ee2bbffe8eaff> ;
+        vivo:relatedBy              authorship:3266506-2 , authorship:3266506-8aacf919206c6655bc3edbdf25ec7c08 , authorship:3266506-1 , authorship:3266506-4 , authorship:3266506-3 .
+#+end_SRC
+
+
+#+call: describe_hash(uri="person:f9ef1e530c617cd598171497b4a49e82",limit="50")
+
+
+** Deleting
+
+   There are some general purpose deletions that we can run.  The most basic is
+   deleting a URI and all it's hashed extensions.  Again, we add a type to this,
+   but it's optional.
+
+#+name: construct_hash
+#+BEGIN_SRC sparql :eval no :noweb yes :format raw :wrap SRC ttl :tangle basic/construct_hash.ru :var construct="construct"
+     <<prefixes>>
+     $construct { ?s ?p ?o }
+     WHERE {
+       {
+         select distinct ?s where {
+           ?uri a ?type.
+           ?s a ?t.
+           filter(regex(str(?s),concat("^",str(?uri),"(#|$)")))
+         } order by ?s limit $limit
+       }
+       ?s ?p ?o.
+     }
+#+END_SRC
+
+#+call: construct_hash[:eval yes](uri="person:f9ef1e530c617cd598171497b4a49e82",type="ucdrp:person",limit="30")
+
+
+** Description File
+
+   This file is a ttl representation of all of the queries.  The idea is that we
+   can install this, and then our client can read this data and determine all
+   the queries that it can run.
+
+#+BEGIN_SRC ttl :noweb yes :tangle basic_select.ttl
+    <<prefixes>>
+
+    q:type
+        a aeq:Bind ;
+        rdfs:label "A Class in the domain of rdf:type" ;
+        aeq:bind_to "?type" ;
+        aeq:bind_type xsd:uri ;
+        .
+
+    q:uri
+        a aeq:Bind ;
+        rdfs:label "A general URI" ;
+        aeq:bind_to "?uri" ;
+        aeq:bind_type xsd:uri ;
+        .
+
+    q:limit
+        a aeq:Bind ;
+        rdfs:label "Pseudo variable setting the limit on queries." ;
+        aeq:bind_to "?limit" ;
+        aeq:bind_type xsd:integer ;
+        .
+
+    q:select_hash
+        rdf:type  aeq:SelectQuery, aeq:Query;
+        rdfs:label "Expanded Select of URI." ;
+        rdfs:description """
+
+         The select_hash takes a URI and an optional type, and selects all
+  expanded URIs in the graph.  This selects all objects in use exclusively for the
+  particular URI.
+
+           """ ;
+           aeq:parameter [
+               aeq:bind q:uri ;
+               aeq:required true ;
+               ] ;
+           aeq:parameter [
+               aeq:bind q:type ;
+               aeq:required false ;
+               ] ;
+           aeq:parameter [
+               aeq:bind q:limit ;
+               aeq:required true ;
+               aeq:bind_default 5 ;
+               ] ;
+
+              aeq:query """
+             <<select_hash>>
+           """ ;
+           .
+
+             q:select_of_type
+               rdf:type  aeq:SelectQuery, aeq:Query;
+               rdfs:label "Select of Type" ;
+               rdfs:description """
+
+         The select_of_type is just meant to give a few examples of objects that are of a
+         specific type (default ucrdp:person) in the database.  Only the subject of the
+         statement is returned.
+
+           """ ;
+           aeq:parameter [
+               aeq:bind q:type ;
+               aeq:required true ;
+               aeq:bind_default ucdrp:person ;
+               ] ;
+           aeq:parameter [
+               aeq:bind q:limit ;
+               aeq:required true ;
+               aeq:bind_default 5 ;
+               ] ;
+
+              aeq:query """
+             <<select_of_type>>
+           """ ;
+           .
+
+    q:describe_hash
+        rdf:type  aeq:DescribeQuery, aeq:Query;
+        rdfs:label "Describe" ;
+        rdfs:description """
+
+    This query will result in an expanded describe command.  By expanded, we take
+    advantage of the way that we build URIs in Aggie Experts.  When a particular URI
+    needs a complex object that only itself needs, then it creates this by extending
+    it's own URI w/ a hashed suffix.  Utilizing this, we can know all the sub
+    objects created or associated with any first class object in the system.
+
+           """ ;
+        aeq:parameter [
+            aeq:bind q:uri ;
+            aeq:required true ;
+            ] ;
+        aeq:query """
+             <<describe_hash>>
+           """ ;
+        .
+
+#+END_SRC

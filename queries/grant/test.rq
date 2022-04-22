@@ -1,0 +1,9 @@
+PREFIX experts: <http://experts.ucdavis.edu/>
+PREFIX grant: <http://experts.ucdavis.edu/grant/>
+PREFIX vivo: <http://vivoweb.org/ontology/core#>
+
+describe ?g
+WHERE {
+  bind(?grant as ?g)
+  ?g a vivo:Grant
+} LIMIT 10
