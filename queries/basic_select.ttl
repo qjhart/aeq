@@ -1,0 +1,104 @@
+q:type
+      a aeq:Bind ;
+      rdfs:label "A Class in the domain of rdf:type" ;
+      aeq:bind_to "?type" ;
+      aeq:bind_type xsd:uri ;
+      .
+
+  q:uri
+      a aeq:Bind ;
+      rdfs:label "A general URI" ;
+      aeq:bind_to "?uri" ;
+      aeq:bind_type xsd:uri ;
+      .
+
+  q:limit
+      a aeq:Bind ;
+      rdfs:label "Pseudo variable setting the limit on queries." ;
+      aeq:bind_to "?limit" ;
+      aeq:bind_type xsd:integer ;
+      .
+
+  q:select_hash
+      rdf:type  aeq:SelectQuery, aeq:Query;
+      rdfs:label "Expanded Select of URI." ;
+      rdfs:description """
+
+       The select_hash takes a URI and an optional type, and selects all
+expanded URIs in the graph.  This selects all objects in use exclusively for the
+particular URI.
+
+         """ ;
+         aeq:parameter [
+             aeq:bind q:uri ;
+             aeq:required true ;
+             ] ;
+         aeq:parameter [
+             aeq:bind q:type ;
+             aeq:required false ;
+             ] ;
+         aeq:parameter [
+             aeq:bind q:limit ;
+             aeq:required true ;
+             aeq:bind_default 5 ;
+             ] ;
+
+            aeq:query """
+           
+           $select ?s where {
+            ?uri a ?type.
+            ?s a ?t.
+            filter(regex(str(?s),concat("^",str(?uri),"(#|$)")))
+           } order by ?s limit $limit
+         """ ;
+         .
+
+           q:select_of_type
+             rdf:type  aeq:SelectQuery, aeq:Query;
+             rdfs:label "Select of Type" ;
+             rdfs:description """
+
+       The select_of_type is just meant to give a few examples of objects that are of a
+       specific type (default ucrdp:person) in the database.  Only the subject of the
+       statement is returned.
+
+         """ ;
+         aeq:parameter [
+             aeq:bind q:type ;
+             aeq:required true ;
+             aeq:bind_default ucdrp:person ;
+             ] ;
+         aeq:parameter [
+             aeq:bind q:limit ;
+             aeq:required true ;
+             aeq:bind_default 5 ;
+             ] ;
+
+            aeq:query """
+           
+           select ?s WHERE {
+             ?s a ?type.
+           } limit ?limit
+         """ ;
+         .
+
+  q:describe_hash
+      rdf:type  aeq:DescribeQuery, aeq:Query;
+      rdfs:label "Describe" ;
+      rdfs:description """
+
+  This query will result in an expanded describe command.  By expanded, we take
+  advantage of the way that we build URIs in Aggie Experts.  When a particular URI
+  needs a complex object that only itself needs, then it creates this by extending
+  it's own URI w/ a hashed suffix.  Utilizing this, we can know all the sub
+  objects created or associated with any first class object in the system.
+
+         """ ;
+      aeq:parameter [
+          aeq:bind q:uri ;
+          aeq:required true ;
+          ] ;
+      aeq:query """
+           
+         """ ;
+      .

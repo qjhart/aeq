@@ -1,0 +1,5 @@
+select distinct ?s where {
+ ?uri a ?type.
+ ?s a ?t.
+ filter(regex(str(?s),concat("^",str(?uri),"(#|$)")))
+} order by ?s limit $limit
