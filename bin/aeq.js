@@ -1,7 +1,8 @@
 #! /usr/bin/env node
 'use strict';
 
-import fs from 'node:fs';
+import fs from 'fs';
+import { EventEmitter, once } from 'node:events';
 
 import cli_args from 'command-line-args';
 import cli_usage from 'command-line-usage';
@@ -10,12 +11,19 @@ import { newEngine } from '@comunica/actor-init-sparql';
 const sparql = newEngine();
 
 import { DataFactory } from 'rdf-data-factory';
-const DF = new DataFactory();
+const df = new DataFactory();
 
 import { LoggerPretty } from '@comunica/logger-pretty';
 const logger = new LoggerPretty({ name: 'sparql' });
 
 import { Bindings } from '@comunica/bus-query-operation';
+
+//Store examples
+import { Quadstore } from 'quadstore';
+import { MemoryLevel } from 'memory-level';
+const backend = new MemoryLevel();
+const store = new Quadstore({ backend,
+                              dataFactory: df });
 
 //JSONLD utilities
 import md5 from 'md5';
@@ -24,19 +32,16 @@ import jsonld from 'jsonld';
 import { JsonLdParser } from "jsonld-streaming-parser";
 const parser = new JsonLdParser();
 
-const fs = require('fs')
-
 function set_bindings(cli_binds) {
   let binds={}
   cli_binds.forEach(function(x) {
     let [key, val]=x.split('=')
-//    binds[key]=DF.literal(val)
-    binds[key]=DF.namedNode(val)
+//    binds[key]=df.literal(val)
+    binds[key]=df.namedNode(val)
   });
 
   return new Bindings(binds);
 }
-
 
 const options = [
   {
@@ -59,12 +64,18 @@ const options = [
   },
   {
     name: 'query',
-    defaultOption:true,
+//    defaultOption:false,
     description: 'Sparql query'
   },
   {
+    name: 'files',
+    defaultOption:true,
+    multiple:true,
+    description: 'Data Files'
+  },
+  {
     name: 'query@',
-    defaultOption:false,
+//    defaultOption:false,
     description: 'Sparql query file'
   }
 ];
@@ -89,31 +100,47 @@ if (cli.help) {
   process.exit(0);
 }
 
-function readFiles(cli,parser,store) {
-  const promises = [];
-  cli.args.forEach(function(fn) {
-    promises.push(
-      pipeline(
-        fs.createReadStream(fn),
-        parser.import(),
-        store.import()
-      ))
-  });
-  return Promise.all(promises);
+async function readFilesSync(cli,parser,store) {
+  for (let i=0; i<cli.files.length; i++) {
+    let fn=cli.files[i];
+    console.log("Reading file: "+fn);
+    let stream=store.import(parser.import(fs.createReadStream(fn)));
+    await once(stream, 'end');
+//    console.log(`${fn} size:`,store.size);
+  }
 }
 
-async function run() {
-  await pipeline(
-    fs.createReadStream('archive.tar'),
-    zlib.createGzip(),
-    fs.createWriteStream('archive.tar.gz'),
-  );
-  console.log('Pipeline succeeded.');
+function readFiles(cli,parser,store) {
+  return Promise.all(cli.files.map((fn) => {
+    console.log("Reading file: "+fn);
+    let stream=store.import(parser.import(fs.createReadStream(fn)));
+    return once(stream, 'end');
+  }))
 }
-  if (x.startsWith('@')) {
-    cli.query=fs.readFileSync(x.substring(1)).toString();
-  }
-});
+
+await store.open();
+
+if (cli.files.length>0) {
+  await readFiles(cli,parser,store);
+}
+//console.log("Store size: "+store.size);
+store.match().forEach(function(x) {console.log(x)});
+
+     // if (cli.files.length>0) {
+//   readFiles(cli,parser,store).then(function() {
+//     return store.match();
+//   }).then(function(stream) {
+//     return new Promise((resolve, reject) => {
+//       stream.on('data', function (quad) {
+//         console.log(quad);
+//       });
+//       stream.on('end', resolve);
+//       stream.on('error', reject);
+//     });
+//   }).catch(function(err) {
+//     console.error(err);
+//   });
+// }
 
 
 //if it is a file, read it and add it to the query

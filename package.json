@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "Query the Aggie Expert linked data server",
   "main": "index.js",
+  "type": "module",
   "bin": [
     "bin/grants"
   ],
@@ -26,6 +27,9 @@
     "command-line-usage": "^6.1.1",
     "jsonld": "^5.2.0",
     "md5": "^2.3.0",
+    "memory-level": "^1.0.0",
+    "n3": "^1.16.3",
+    "quadstore": "^11.0.8",
     "rdf-namespaces": "^1.9.2",
     "sparqlalgebrajs": "^3.0.2",
     "traverse": "^0.6.6"
