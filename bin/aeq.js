@@ -50,37 +50,14 @@ const options = [
     type: Boolean,
     description: 'Display this usage guide.'
   },
-  //verbose
   {
-    name: 'verbose',
-    alias: 'v',
-    type: Boolean,
-    description: 'Verbose output'
-  },
-  {
-       name: 'bind',
-    lazyMultiple:true,
-    description: 'Variables to bind'
-  },
-  {
-    name: 'query',
-//    defaultOption:false,
-    description: 'Sparql query'
-  },
-  {
-    name: 'files',
-    defaultOption:true,
-    multiple:true,
-    description: 'Data Files'
-  },
-  {
-    name: 'query@',
-//    defaultOption:false,
-    description: 'Sparql query file'
+    name: 'cmd',
+    defaultOption: true
   }
 ];
 
-const cli = cli_args(options);
+const cli = cli_args(options, { stopAtFirstUnknown: true });
+const argv = cli._unknown || [];
 
 const usage = cli_usage(
   [
@@ -91,6 +68,19 @@ const usage = cli_usage(
     {
       header: 'Options',
       optionList: options
+    },
+    {
+      header: 'Commands',
+      content: [
+        {
+          name: 'help',
+          summary: 'Display this usage guide.'
+        },
+        {
+          name: 'query',
+          summary: 'Sparql query'
+        }
+      ]
     }
   ]
 );
@@ -99,6 +89,44 @@ if (cli.help) {
   console.log(usage);
   process.exit(0);
 }
+
+if(cli.cmd === 'query') {
+  const query_options = [
+    {
+      name: 'help',
+      alias: 'h',
+      type: Boolean,
+      description: 'Display this usage guide.'
+    },
+    {
+      name: 'bind',
+      lazyMultiple:true,
+      description: 'Variables to bind'
+    },
+    {
+      name: 'query',
+      //    defaultOption:false,
+      description: 'Sparql query'
+    },
+    {
+      name: 'files',
+      defaultOption:true,
+      multiple:true,
+      description: 'Data Files'
+    },
+    {
+      name: 'query@',
+      //    defaultOption:false,
+      description: 'Sparql query file'
+    }
+  ];
+
+  const query_cli = cli_args(query_options, { argv });
+  console.log("QUERY")
+  console.log(query_cli);
+  exit(0);
+}
+
 
 async function readFilesSync(cli,parser,store) {
   for (let i=0; i<cli.files.length; i++) {
@@ -125,25 +153,6 @@ if (cli.files.length>0) {
 }
 //console.log("Store size: "+store.size);
 store.match().forEach(function(x) {console.log(x)});
-
-     // if (cli.files.length>0) {
-//   readFiles(cli,parser,store).then(function() {
-//     return store.match();
-//   }).then(function(stream) {
-//     return new Promise((resolve, reject) => {
-//       stream.on('data', function (quad) {
-//         console.log(quad);
-//       });
-//       stream.on('end', resolve);
-//       stream.on('error', reject);
-//     });
-//   }).catch(function(err) {
-//     console.error(err);
-//   });
-// }
-
-
-//if it is a file, read it and add it to the query
 
 
 function query_example() {
