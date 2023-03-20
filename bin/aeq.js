@@ -50,15 +50,8 @@ const options = [
     type: Boolean,
     description: 'Display this usage guide.'
   },
-  //verbose
   {
-    name: 'verbose',
-    alias: 'v',
-    type: Boolean,
-    description: 'Verbose output'
-  },
-  {
-       name: 'bind',
+    name: 'bind',
     lazyMultiple:true,
     description: 'Variables to bind'
   },
@@ -126,25 +119,6 @@ if (cli.files.length>0) {
 //console.log("Store size: "+store.size);
 store.match().forEach(function(x) {console.log(x)});
 
-     // if (cli.files.length>0) {
-//   readFiles(cli,parser,store).then(function() {
-//     return store.match();
-//   }).then(function(stream) {
-//     return new Promise((resolve, reject) => {
-//       stream.on('data', function (quad) {
-//         console.log(quad);
-//       });
-//       stream.on('end', resolve);
-//       stream.on('error', reject);
-//     });
-//   }).catch(function(err) {
-//     console.error(err);
-//   });
-// }
-
-
-//if it is a file, read it and add it to the query
-
 
 function query_example() {
 
@@ -157,8 +131,6 @@ function query_example() {
     process.exit(1);
   }
 }
-
-
 
   const query=`
 PREFIX experts: <http://experts.ucdavis.edu/>
