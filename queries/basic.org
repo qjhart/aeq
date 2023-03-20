@@ -13,8 +13,6 @@ general information about the selections in the database.
 (org-babel-lob-ingest "prefixes.org");
 #+END_SRC
 
-#+RESULTS: lob-ingest
-: 3
 
 #+name: select_of_type
 #+BEGIN_SRC sparql :noweb yes :tangle basic/select_of_type.rp
@@ -32,6 +30,15 @@ general information about the selections in the database.
 | http://experts.ucdavis.edu/person/825ce359f69a5b6b72412590d4913a79 |
 | http://experts.ucdavis.edu/person/1b9f745893ea8c821a3fc847e9775dbe |
 | http://experts.ucdavis.edu/person/b8bbd1e76f1b76c87fe36975ab5a2b2e |
+
+#+name: json_encode
+#+BEGIN_SRC elisp :var data="" :wrap json
+  (json-encode-string data);
+#+END_SRC
+
+#+BEGIN_SRC elisp :var data="" :wrap json
+(org-babel-expand-src-block "foo")
+#+END_SRC
 
 
 Another query that we want to include is a selection where you are passed a URI
@@ -160,121 +167,12 @@ work:3266506  a                     bibo:AcademicArticle , ucdrp:work ;
 
 ** Description File
 
-   This file is a ttl representation of all of the queries.  The idea is that we
-   can install this, and then our client can read this data and determine all
-   the queries that it can run.
-
-#+BEGIN_SRC ttl :noweb yes :tangle basic_select.ttl
-    <<prefixes>>
-
-    q:type
-        a aeq:Bind ;
-        rdfs:label "A Class in the domain of rdf:type" ;
-        aeq:bind_to "?type" ;
-        aeq:bind_type xsd:uri ;
-        .
-
-    q:uri
-        a aeq:Bind ;
-        rdfs:label "A general URI" ;
-        aeq:bind_to "?uri" ;
-        aeq:bind_type xsd:uri ;
-        .
-
-    q:limit
-        a aeq:Bind ;
-        rdfs:label "Pseudo variable setting the limit on queries." ;
-        aeq:bind_to "?limit" ;
-        aeq:bind_type xsd:integer ;
-        .
-
-    q:select_hash
-        rdf:type  aeq:SelectQuery, aeq:Query;
-        rdfs:label "Expanded Select of URI." ;
-        rdfs:description """
-
-         The select_hash takes a URI and an optional type, and selects all
-  expanded URIs in the graph.  This selects all objects in use exclusively for the
-  particular URI.
-
-           """ ;
-           aeq:parameter [
-               aeq:bind q:uri ;
-               aeq:required true ;
-               ] ;
-           aeq:parameter [
-               aeq:bind q:type ;
-               aeq:required false ;
-               ] ;
-           aeq:parameter [
-               aeq:bind q:limit ;
-               aeq:required true ;
-               aeq:bind_default 5 ;
-               ] ;
-
-              aeq:query """
-             <<select_hash>>
-           """ ;
-           .
-
-             q:select_of_type
-               rdf:type  aeq:SelectQuery, aeq:Query;
-               rdfs:label "Select of Type" ;
-               rdfs:description """
-
-         The select_of_type is just meant to give a few examples of objects that are of a
-         specific type (default ucrdp:person) in the database.  Only the subject of the
-         statement is returned.
-
-           """ ;
-           aeq:parameter [
-               aeq:bind q:type ;
-               aeq:required true ;
-               aeq:bind_default ucdrp:person ;
-               ] ;
-           aeq:parameter [
-               aeq:bind q:limit ;
-               aeq:required true ;
-               aeq:bind_default 5 ;
-               ] ;
-
-              aeq:query """
-             <<select_of_type>>
-           """ ;
-           .
-
-    q:describe_hash
-        rdf:type  aeq:DescribeQuery, aeq:Query;
-        rdfs:label "Describe" ;
-        rdfs:description """
-
-    This query will result in an expanded describe command.  By expanded, we take
-    advantage of the way that we build URIs in Aggie Experts.  When a particular URI
-    needs a complex object that only itself needs, then it creates this by extending
-    it's own URI w/ a hashed suffix.  Utilizing this, we can know all the sub
-    objects created or associated with any first class object in the system.
-
-           """ ;
-        aeq:parameter [
-            aeq:bind q:uri ;
-            aeq:required true ;
-            ] ;
-        aeq:query """
-             <<describe_hash>>
-           """ ;
-        .
-
-#+END_SRC
-
-#+BEGIN_SRC js :noweb yes :tangle basic_select.json
+#+BEGIN_SRC json :noweb yes :tangle basic_select.json
   {
       "q:select_hash":
         "rdf:type":[ "aeq:SelectQuery", "aeq:Query" ],
         "rdfs:label":"Expanded Select of URI.",
-        "rdfs:description":"
-             The select_hash takes a URI and an optional type, and selects all
-      expanded URIs in the graph.  This selects all objects in use exclusively for the
-      particular URI.",
+        "rdfs:description":"The select_hash takes a URI and an optional type, and selects all expanded URIs in the graph.  This selects all objects in use exclusively for the particular URI.",
         "parameter":[
             {
                 "aeq:bind":"q:uri",
@@ -289,51 +187,43 @@ work:3266506  a                     bibo:AcademicArticle , ucdrp:work ;
                 "aeq:bind_default":5
             }
         ],
-        "aeq:query":""
+        "aeq:query":"<<select_hash>>"
   },
   "q:select_of_type":{
       "rdf:type":["aeq:SelectQuery","aeq:Query"],
       "rdfs:label":"Select of Type" ;
-      "rdfs:description":"
-             The select_of_type is just meant to give a few examples of objects that are of a
-             specific type (default ucrdp:person) in the database.  Only the subject of the
-             statement is returned.",
+      "rdfs:description":"The select_of_type is just meant to give a few examples of objects that are of a specific type (default ucrdp:person) in the database.  Only the subject of the statement is returned.",
       "aeq:parameter":[
           {
-              "aeq:bind":"q:type",
+          "aeq:bind":"q:type",
           "aeq:required": true ,
           "aeq:bind_default": "ucdrp:person"
-      ] ;
-               aeq:parameter [
-                   aeq:bind q:limit ;
-                   aeq:required true ;
-                   aeq:bind_default 5 ;
-                   ] ;
+      },
+          {
+          "aeq:bind": "q:limit" ,
+          "aeq:required": true ,
+          "aeq:bind_default": 5
+      }
+      ],
+      "aeq:query":"<<select_of_type>>"
+  },
+  "q:describe_hash":{
+      "rdf:type":["aeq:DescribeQuery","aeq:Query"],
+      "rdfs:label":"Describe Hash",
+      "rdfs:description":"This query will result in an expanded describe command.  By expanded, we take advantage of the way that we build URIs in Aggie Experts.  When a particular URI needs a complex object that only itself needs, then it creates this by extending it's own URI w/ a hashed suffix.  Utilizing this, we can know all the sub objects created or associated with any first class object in the system.",
+      "aeq:parameter":[
+          {
+          "aeq:bind":"q:uri",
+          "aeq:required":true
+      },
+          {
+          "aeq:bind":"q:limit",
+          "aeq:required":true,
+          "aeq:bind_default":5
+      }
 
-                  aeq:query """
-                 <<select_of_type>>
-               """ ;
-               .
-
-        q:describe_hash
-            rdf:type  aeq:DescribeQuery, aeq:Query;
-            rdfs:label "Describe" ;
-            rdfs:description """
-
-        This query will result in an expanded describe command.  By expanded, we take
-        advantage of the way that we build URIs in Aggie Experts.  When a particular URI
-        needs a complex object that only itself needs, then it creates this by extending
-        it's own URI w/ a hashed suffix.  Utilizing this, we can know all the sub
-        objects created or associated with any first class object in the system.
-
-               """ ;
-            aeq:parameter [
-                aeq:bind q:uri ;
-                aeq:required true ;
-                ] ;
-            aeq:query """
-                 <<describe_hash>>
-               """ ;
-            .
+      ],
+      "aeq:query":"<<describe_hash>>"
+  }
 
 #+END_SRC

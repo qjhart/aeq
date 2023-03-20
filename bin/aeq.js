@@ -167,8 +167,6 @@ function query_example() {
   }
 }
 
-
-
   const query=`
 PREFIX experts: <http://experts.ucdavis.edu/>
 PREFIX grant: <http://experts.ucdavis.edu/grant/>
