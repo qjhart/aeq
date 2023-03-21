@@ -13,16 +13,21 @@ PREFIX vivo: <http://vivoweb.org/ontology/core#>
 PREFIX work: <http://experts.ucdavis.edu/work/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-
 construct {
-  ?work a ?bibo_type,ucdrp:work;
+  ?work a ?bibo_type;
         bibo:status ?vivoStatus;
-	      ucdrp:lastModifiedDateTime ?lastModifiedDateTime;
-      ?field_predicate ?field_value;
       .
 
-  ?work  ucdrp:published ?pub_datestr;
-         ucdrp:workdate ?work_pubdate;
+  ?work a ucdrp:work;
+        cite:type ?cite_type;
+        cite:genre ?cite_genre;
+        cite:status ?status;
+	      ucdrp:lastModifiedDateTime ?lastModifiedDateTime;
+       ?field_predicate ?field_value;
+       .
+
+  ?work  cite:issued ?pub_datestr;
+         cite:issued ?work_pubdate;
          .
 
   ?work_pubdate ucdrp:year ?pub_year;
@@ -30,8 +35,8 @@ construct {
                 ucdrp:day ?pub_day;
                 .
 
-  ?work  ucdrp:online-published ?opub_datestr;
-         ucdrp:online-workdate ?work_opubdate;
+  ?work  cite:date-available ?opub_datestr;
+         cite:date-available ?work_opubdate;
          .
 
   ?work_opubdate ucdrp:year ?opub_year;
@@ -73,22 +78,41 @@ construct {
               .
 }
 WHERE {
-  VALUES(?oap_type ?bibo_type){
-    ("book" bibo:Book)
-    ("chapter" bibo:Chapter)
-    ("conference" vivo:ConferencePaper)
-    ("journal-article" bibo:AcademicArticle)
-    ("preprint" ucdrp:PrePrint)
-    ("scholarly-edition" ucdrp:Misc)
+  VALUES(?oap_type ?bibo_type ?cite_type){
+    ("book" bibo:Book "book" "")
+    ("chapter" bibo:Chapter "chapter" "")
+    ("conference" vivo:ConferencePaper "paper-conference" "")
+    ("dataset" ucdrp:work "dataset" "")
+    ("internet-publication" ucdrp:work "webpage" "")
+    ("journal-article" bibo:AcademicArticle "article-journal" "")
+    ("media" ucdrp:work "article" "media")
+    ("other" ucdrp:work "article" "other")
+    ("poster" ucdrp:work "speech" "poster")
+    ("preprint" ucdrp:PrePrint "article" "preprint" )
+    ("presentation" ucdrp:work "speech" "presentation")
+    ("report" ucdrp:work "report" "")
+    ("scholarly-edition" ucdrp:work "manuscript" "scholarly-edition")
+    ("software" ucdrp:work "software")
+    ("thesis-dissertation" ucdrp:work "thesis" "disseration")
+  }
+
+    VALUES(?oap_type ?cite_genre){
+    ("media" "media")
+    ("other" "other")
+    ("poster" "poster")
+    ("preprint" "preprint" )
+    ("presentation" "presentation")
+    ("scholarly-edition" "scholarly-edition")
+    ("thesis-dissertation" "disseration")
   }
   # Get every field_name
   {
     select ?pub ?field_name (min(?p) as ?priority)
     WHERE {
       VALUES (?source ?p) {
-        ("verified-manual" 1) ("epmc" 2) ("pubmed" 3)  ("scopus" 4)("wos" 5) ("wos-lite" 6)
-        ("crossref" 7)  ("dimensions" 8) ("arxiv" 9)("orcid" 10) ("dblp" 11)  ("cinii-english" 12)
-        ("repec" 13)  ("figshare" 14)  ("cinii-japanese" 15) ("manual" 16)  ("dspace" 17) }
+        ("verified-manual" 1)("epmc" 2)("pubmed" 3)("scopus" 4)("wos" 5)("wos-lite" 6)
+        ("crossref" 7)("dimensions" 8)("arxiv" 9)("orcid" 10)("dblp" 11)("cinii-english" 12)
+        ("repec" 13)("figshare" 14)("cinii-japanese" 15)("manual" 16)("dspace" 17) }
 
       ?pub oap:records/oap:record [ oap:source-name  ?source;
                                      oap:native/oap:field/oap:name ?field_name ].
@@ -102,25 +126,65 @@ WHERE {
 
  # these are the fields to check
  VALUES(?field_name ?field_predicate) {
-   ("abstract" bibo:abstract)
-   ("author-url" bibo:uri)
-   ("authors" ucdrp:EXPANDED)
-   ("c-eschol-id" bibo:identifier)
-   ("doi" bibo:doi)
-   ("isbn-10" bibo:isbn10)
-   ("isbn-13" bibo:isbn13)
-   ("issue" bibo:issue)
-   ("number" bibo:number)
-   ("online-publication-date" ucdrp:EXPANDED)
-   ("pagination" ucdrp:ignore)
-   ("publication-status" ucdrp:ignore)
-   ("publication-date" ucdrp:EXPANDED)
-   ("public-url" bibo:uri)
-   ("publish-url" bibo:uri)
-   ("title" rdfs:label)
-   ("volume" bibo:volume)
-   }
-
+      ("doi" bibo:doi)
+      ("abstract" cite:abstract)
+      ("acceptance-date" cite:issued)
+      #("addresses" cite:)
+      #("altmetric-attention-score" cite:)
+      #("associated-identifiers" cite:)
+      #("author-url" cite:) # Was bib:uri
+      ("authors" cite:EXPANDED) # This gets expanded below
+      #("c-eschol-id" cite:) # Was bibo:identifier, should be a specific esscholarship identifier
+      #("c-uci-id" cite:)
+      #("c-ucsf-id" cite:)
+      #("collections" cite:)
+      #("confidential" cite:)
+      ("doi" cite:DOI)
+      ("edition" cite:edition)
+      #("editors" cite:)
+      ("eissn" cite:eissn)
+      #("embargo-release-date" cite:)
+      ("external-identifiers" cite:)
+      #("field-citation-ratio" cite:)
+      #("filed-date" cite:)
+      #("finish-date" cite:)
+      ("is-open-access" ucdrp:is-open-access)
+      ("isbn-10" cite:ISBN)
+      ("isbn-13" cite:ISBN)
+      ("issn" cite:ISSN)
+      ("issue" cite:issue)
+      ("journal" cite:container-title)
+      ("keywords" cite:keyword)
+      ("language" cite:language)
+      #("location" cite:)
+      ("medium" cite:medium)
+      ("name-of-conference" cite:container-title)
+      ("notes" cite:note)
+      ("number" cite:collection-number)
+      ("oa-location-url" cite:url)
+      ("online-publication-date" cite:available-date) # EXPANDED below
+      ("pagination" cite:pagination) #EXPANDED below
+      ("parent-title" cite:container-title)
+      #("pii" cite:)
+      ("place-of-publication" cite:publisher-place)
+      ("public-url" cite:url)
+      ("publication-date" cite:issued) # EXPANDED below
+      ("publication-status" cite:status) #EXPANDED below
+      ("publisher" cite:publisher)
+      ("publisher-licence" cite:license)
+      #("publisher-url" cite:)
+      #("record-created-at-source-date" cite:)
+      #("record-made-public-at-source-date" cite:)
+      #("relative-citation-ratio" cite:)
+      #("repository-status" cite:)
+      ("series" cite:collection-number)
+      #("start-date" cite:)
+      ("thesis-type" cite:genre) # Hopefully cite:type set correctly
+      ("title" cite:title)
+      ("title" rdfs:label) # Simple label as well
+      #("types" cite:genre) Handled elsewhere
+      ("volume" cite:volume)
+    }
 
   ?pub  oap:last-modified-when ?lastModifiedWhen;
         oap:records/oap:record [ oap:source-name  ?source;
